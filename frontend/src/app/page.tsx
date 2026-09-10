@@ -42,7 +42,8 @@ import {
   CloseOutlined,
   RiseOutlined,
   BarChartOutlined,
-  AuditOutlined
+  AuditOutlined,
+  ThunderboltOutlined
 } from '@ant-design/icons';
 import { api, OverallStats, IngestRunItem } from '@/lib/api';
 import { useTheme } from '@/theme/ThemeContext';
@@ -430,6 +431,242 @@ export default function DashboardPage() {
         </Col>
       </Row>
 
+      {/* Futuristic Centered Ingestion Command Center (Directly Under Header Matrices) */}
+      <div style={{ maxWidth: 1120, margin: '4px auto 12px auto', width: '100%' }}>
+        <div 
+          className="futuristic-card"
+          style={{
+            background: isDark 
+              ? 'linear-gradient(180deg, #1c1c22 0%, #151518 100%)' 
+              : 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+            border: isDark ? '1px solid rgba(6, 182, 212, 0.35)' : '1px solid #cbd5e1',
+            boxShadow: isDark 
+              ? '0 10px 30px rgba(0, 0, 0, 0.4), 0 0 16px rgba(6, 182, 212, 0.08)' 
+              : '0 4px 18px rgba(0, 0, 0, 0.04)',
+            padding: '24px 28px',
+          }}
+        >
+          {/* Futuristic HUD Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: isDark ? '1px solid #2d2d36' : '1px solid #e2e8f0', paddingBottom: 16, marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span className="hud-beacon" />
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Text strong style={{ fontSize: 14, letterSpacing: '0.08em', color: '#06b6d4', textTransform: 'uppercase', fontFamily: 'monospace' }}>
+                    ATOMIC INGESTION COMMAND // CORE ENGINE
+                  </Text>
+                  <Tag color="cyan" style={{ borderRadius: 0, fontWeight: 700, fontSize: 10, letterSpacing: '0.05em' }}>
+                    SYS.ARMED
+                  </Tag>
+                </div>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  High-throughput streaming pipeline with Section 3 validation, SHA-256 fingerprinting, and Dead-Letter quarantine.
+                </Text>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <Tag style={{ borderRadius: 0, background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', fontSize: 11, fontFamily: 'monospace', color: 'var(--text-muted)' }}>
+                PROTOCOL: ATOMIC_TX
+              </Tag>
+              <Tag style={{ borderRadius: 0, background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', fontSize: 11, fontFamily: 'monospace', color: '#10b981' }}>
+                LOCALE: IST (UTC+5:30)
+              </Tag>
+              <Tag style={{ borderRadius: 0, background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', fontSize: 11, fontFamily: 'monospace', color: '#3b82f6' }}>
+                ENGINE: V2.4 RELATIONAL
+              </Tag>
+            </div>
+          </div>
+
+          {/* Dual Cyber Console: Simulator + In-Memory Staging Deck */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20 }}>
+            {/* Left Console: Fast Simulation Stream */}
+            <div
+              style={{
+                padding: '20px',
+                background: isDark ? 'rgba(6, 182, 212, 0.03)' : '#f0f9ff',
+                border: isDark ? '1px solid rgba(6, 182, 212, 0.2)' : '1px solid #bae6fd',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                gap: 16,
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Space>
+                    <ThunderboltOutlined style={{ color: '#06b6d4', fontSize: 16 }} />
+                    <Text strong style={{ fontSize: 13, letterSpacing: '0.04em', textTransform: 'uppercase', fontFamily: 'monospace' }}>
+                      SYNTHETIC TELEMETRY STREAM
+                    </Text>
+                  </Space>
+                  <Tag color="blue" style={{ borderRadius: 0, fontSize: 11, fontWeight: 700 }}>
+                    247 RECORDS
+                  </Tag>
+                </div>
+                <Text type="secondary" style={{ fontSize: 12, display: 'block', lineHeight: 1.6 }}>
+                  Streams standard 247-record validation suite across Alpha, Beta, Gamma, and Delta. Stresses UUIDs, duplicate conflicts, float normalization, and status enums.
+                </Text>
+              </div>
+
+              <Button
+                type="primary"
+                icon={<PlayCircleOutlined />}
+                loading={ingesting}
+                onClick={handleRunSample}
+                style={{
+                  borderRadius: 0,
+                  background: 'linear-gradient(90deg, #0284c7 0%, #06b6d4 100%)',
+                  border: 'none',
+                  fontWeight: 700,
+                  letterSpacing: '0.04em',
+                  height: 36,
+                }}
+              >
+                EXECUTE SAMPLE STREAM
+              </Button>
+            </div>
+
+            {/* Right Console: Staging Chamber / Dropzone */}
+            {stagedFile ? (
+              <div
+                style={{
+                  padding: '20px',
+                  background: isDark ? 'rgba(6, 182, 212, 0.08)' : '#eff6ff',
+                  border: '1px solid #06b6d4',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: 14,
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <Space>
+                      <FileTextOutlined style={{ color: '#06b6d4', fontSize: 18 }} />
+                      <Text strong style={{ fontSize: 13, color: 'var(--text-primary)', fontFamily: 'monospace' }}>
+                        {stagedFile.name}
+                      </Text>
+                    </Space>
+                    <Tag color="cyan" style={{ borderRadius: 0, fontWeight: 700, fontSize: 10 }}>
+                      PAYLOAD IN BUFFER
+                    </Tag>
+                  </div>
+                  <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>
+                    Size: {(stagedFile.size / 1024).toFixed(1)} KB • Encoding: {stagedFile.type || 'application/json'}
+                  </Text>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+                    Payload loaded into client staging memory. Ready to stream into PostgreSQL.
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                  <Button
+                    icon={<CloseOutlined />}
+                    disabled={ingesting}
+                    onClick={() => setStagedFile(null)}
+                    style={{ borderRadius: 0, height: 36 }}
+                  >
+                    Purge Buffer
+                  </Button>
+                  <Button
+                    type="primary"
+                    icon={<RocketOutlined />}
+                    loading={ingesting}
+                    onClick={handleRunStagedFile}
+                    style={{
+                      borderRadius: 0,
+                      background: 'linear-gradient(90deg, #0284c7 0%, #06b6d4 100%)',
+                      border: 'none',
+                      fontWeight: 700,
+                      height: 36,
+                    }}
+                  >
+                    Execute Ingestion
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <Dragger
+                  name="file"
+                  multiple={false}
+                  showUploadList={false}
+                  beforeUpload={(file) => handleStageFile(file)}
+                  disabled={ingesting}
+                  style={{
+                    padding: '20px 16px',
+                    background: isDark ? 'rgba(255, 255, 255, 0.02)' : 'var(--bg-secondary)',
+                    borderRadius: 0,
+                    border: isDark ? '1px dashed rgba(6, 182, 212, 0.35)' : '1px dashed #94a3b8',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <p className="ant-upload-drag-icon" style={{ marginBottom: 8 }}>
+                    <InboxOutlined style={{ color: '#06b6d4', fontSize: 32 }} />
+                  </p>
+                  <p style={{ fontWeight: 700, fontSize: 12, color: 'var(--text-primary)', margin: 0, letterSpacing: '0.04em', textTransform: 'uppercase', fontFamily: 'monospace' }}>
+                    DROP CUSTOM PAYLOAD // JSON • NDJSON
+                  </p>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '6px 0 0' }}>
+                    Files stage in-memory for validation before database commit.
+                  </p>
+                </Dragger>
+              </div>
+            )}
+          </div>
+
+          {/* Telemetry Readout Strip (when lastResult present) */}
+          {lastResult && (
+            <div
+              style={{
+                marginTop: 18,
+                padding: '12px 18px',
+                background: isDark ? 'rgba(16, 185, 129, 0.08)' : '#f0fdf4',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 12,
+              }}
+            >
+              <Space>
+                <CheckCircleOutlined style={{ color: '#10b981', fontSize: 16 }} />
+                <div>
+                  <Text strong style={{ fontSize: 12, color: '#10b981', fontFamily: 'monospace', letterSpacing: '0.04em' }}>
+                    PIPELINE_COMMIT_SUCCESS // EXECUTION COMPLETED IN {lastResult.durationMs}ms
+                  </Text>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                    Batch indexed in PostgreSQL audit activity log.
+                  </div>
+                </div>
+              </Space>
+
+              <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, fontFamily: 'monospace' }}>
+                  PROCESSED: <strong>{lastResult.totalProcessed}</strong>
+                </span>
+                <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#10b981' }}>
+                  ACCEPTED: <strong>{lastResult.accepted}</strong>
+                </span>
+                <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#ef4444' }}>
+                  QUARANTINED: <strong>{lastResult.rejected}</strong>
+                </span>
+                {lastResult.skippedDuplicates > 0 && (
+                  <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#f59e0b' }}>
+                    IDEMPOTENT SKIPS: <strong>{lastResult.skippedDuplicates}</strong>
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Row 2: Secondary Metric Analytics (Requirement 2 - More Metrics) */}
       <Row gutter={[16, 16]}>
         {/* Metric 1: Accepted Record Status Health Breakdown */}
@@ -570,237 +807,71 @@ export default function DashboardPage() {
         </Col>
       </Row>
 
-      {/* Row 3: Ingestion Runner + Rejection Distribution */}
-      <Row gutter={[16, 16]}>
-        {/* Left: Interactive Ingestion Runner */}
-        <Col xs={24} lg={12}>
-          <Card
-            title={
-              <Space>
-                <PlayCircleOutlined style={{ color: '#3b82f6' }} />
-                <span>Pipeline Ingestion Runner</span>
-              </Space>
-            }
-            bordered={false}
-            style={{
-              borderRadius: 0,
-              border: `1px solid var(--border-color)`,
-              background: 'var(--bg-card)',
-              height: '100%',
-            }}
-          >
-            <Paragraph type="secondary" style={{ fontSize: 13, marginBottom: 16 }}>
-              Execute ingestion runs against synthetic or dirty production datasets (JSON arrays or NDJSON).
-            </Paragraph>
+      {/* Row 3: Rejection Breakdown Distribution (Requirement R5) */}
+      <Card
+        title={
+          <Space>
+            <AlertOutlined style={{ color: '#ef4444' }} />
+            <span>Rejection Reason Distribution (Section 3 Taxonomy & Requirement R5)</span>
+          </Space>
+        }
+        extra={
+          <Link href="/rejections">
+            <Button type="link" size="small" icon={<ArrowRightOutlined />} style={{ color: '#3b82f6', borderRadius: 0 }}>
+              Explore Dead Vault
+            </Button>
+          </Link>
+        }
+        bordered={false}
+        style={{
+          borderRadius: 0,
+          border: `1px solid var(--border-color)`,
+          background: 'var(--bg-card)',
+        }}
+      >
+        <Paragraph type="secondary" style={{ fontSize: 13, marginBottom: 16 }}>
+          Aggregated distribution of rule failures categorized by the Section 3 error taxonomy.
+        </Paragraph>
 
-            {/* Quick Sample Button */}
-            <div
-              style={{
-                padding: '16px',
-                borderRadius: 0,
-                background: isDark ? 'rgba(59, 130, 246, 0.08)' : '#eff6ff',
-                border: '1px solid rgba(59, 130, 246, 0.25)',
-                marginBottom: 20,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: 12,
-              }}
-            >
-              <div>
-                <Text strong style={{ display: 'block', fontSize: 13, color: 'var(--text-primary)' }}>
-                  Standard Sample Dataset (247 Dirty Records)
-                </Text>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  Tests UUIDs, duplicate collisions, out-of-order dates, floats, and bad enums.
-                </Text>
-              </div>
-              <Button
-                type="primary"
-                icon={<PlayCircleOutlined />}
-                loading={ingesting}
-                onClick={handleRunSample}
-                style={{ borderRadius: 0 }}
-              >
-                Run Ingestion
-              </Button>
-            </div>
-
-            {/* File Staging Box (Requirement 8 - Staged Upload Before Running) */}
-            {stagedFile ? (
-              <div
-                style={{
-                  padding: 16,
-                  border: '1px solid #3b82f6',
-                  background: isDark ? 'rgba(59, 130, 246, 0.1)' : '#eff6ff',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 12,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Space>
-                    <FileTextOutlined style={{ fontSize: 24, color: '#3b82f6' }} />
-                    <div>
-                      <Text strong style={{ fontSize: 13, color: 'var(--text-primary)', display: 'block' }}>
-                        {stagedFile.name}
+        {stats && stats.rejectionBreakdown && Object.keys(stats.rejectionBreakdown).length > 0 ? (
+          <Row gutter={[20, 14]}>
+            {Object.entries(stats.rejectionBreakdown).map(([reason, count]) => {
+              const pct = stats.totalRejected > 0 ? Number(((count / stats.totalRejected) * 100).toFixed(1)) : 0;
+              return (
+                <Col xs={24} sm={12} lg={8} key={reason}>
+                  <div style={{ padding: '12px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <Text strong style={{ fontSize: 12, fontFamily: 'monospace' }}>
+                        {reason}
                       </Text>
-                      <Text type="secondary" style={{ fontSize: 11 }}>
-                        Size: {(stagedFile.size / 1024).toFixed(1)} KB • Type: {stagedFile.type || 'application/json'}
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {count} ({pct}%)
                       </Text>
                     </div>
-                  </Space>
-                  <Tag color="processing" style={{ borderRadius: 0 }}>
-                    File Staged — Ready
-                  </Tag>
-                </div>
-
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                  File is loaded in client memory. Click <strong>&quot;Execute Ingestion for File&quot;</strong> below to stream records into the database.
-                </div>
-
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
-                  <Button
-                    icon={<CloseOutlined />}
-                    disabled={ingesting}
-                    onClick={() => setStagedFile(null)}
-                    style={{ borderRadius: 0 }}
-                  >
-                    Cancel / Remove
-                  </Button>
-                  <Button
-                    type="primary"
-                    icon={<PlayCircleOutlined />}
-                    loading={ingesting}
-                    onClick={handleRunStagedFile}
-                    style={{ borderRadius: 0 }}
-                  >
-                    Execute Ingestion for File
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Dragger
-                name="file"
-                multiple={false}
-                showUploadList={false}
-                beforeUpload={(file) => handleStageFile(file)}
-                disabled={ingesting}
-                style={{
-                  padding: '16px 0',
-                  background: 'var(--bg-secondary)',
-                  borderRadius: 0,
-                  borderColor: 'var(--border-color)',
-                }}
-              >
-                <p className="ant-upload-drag-icon">
-                  <InboxOutlined style={{ color: '#3b82f6', fontSize: 36 }} />
-                </p>
-                <p style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)', margin: 0 }}>
-                  Click or drag custom JSON / NDJSON file here to stage
-                </p>
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 0' }}>
-                  Files will be staged for preview before running ingestion.
-                </p>
-              </Dragger>
-            )}
-
-            {/* Last Result Summary Alert */}
-            {lastResult && (
-              <div style={{ marginTop: 16 }}>
-                <Alert
-                  message={
-                    <span style={{ fontWeight: 700 }}>
-                      Latest Ingest Run Complete ({lastResult.durationMs} ms)
-                    </span>
-                  }
-                  description={
-                    <div style={{ fontSize: 12, marginTop: 4 }}>
-                      <div>• Total Processed: <strong>{lastResult.totalProcessed}</strong> records</div>
-                      <div>• Accepted & Stored: <strong style={{ color: '#10b981' }}>{lastResult.accepted}</strong></div>
-                      <div>• Quarantined into Vault: <strong style={{ color: '#ef4444' }}>{lastResult.rejected}</strong></div>
-                      {lastResult.skippedDuplicates > 0 && (
-                        <div>• Idempotently Skipped Duplicates: <strong>{lastResult.skippedDuplicates}</strong></div>
-                      )}
-                    </div>
-                  }
-                  type="success"
-                  showIcon
-                  style={{ borderRadius: 0 }}
-                />
-              </div>
-            )}
-          </Card>
-        </Col>
-
-        {/* Right: Rejection Breakdown Distribution (R5) */}
-        <Col xs={24} lg={12}>
-          <Card
-            title={
-              <Space>
-                <AlertOutlined style={{ color: '#ef4444' }} />
-                <span>Rejection Reason Distribution (Requirement R5)</span>
-              </Space>
-            }
-            extra={
-              <Link href="/rejections">
-                <Button type="link" size="small" icon={<ArrowRightOutlined />} style={{ color: '#3b82f6', borderRadius: 0 }}>
-                  Dead Vault
-                </Button>
-              </Link>
-            }
-            bordered={false}
-            style={{
-              borderRadius: 0,
-              border: `1px solid var(--border-color)`,
-              background: 'var(--bg-card)',
-              height: '100%',
-            }}
-          >
-            <Paragraph type="secondary" style={{ fontSize: 13, marginBottom: 16 }}>
-              Aggregated distribution of rule failures categorized by the Section 3 error taxonomy.
-            </Paragraph>
-
-            {stats && stats.rejectionBreakdown && Object.keys(stats.rejectionBreakdown).length > 0 ? (
-              <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                {Object.entries(stats.rejectionBreakdown).map(([reason, count]) => {
-                  const pct = stats.totalRejected > 0 ? Number(((count / stats.totalRejected) * 100).toFixed(1)) : 0;
-                  return (
-                    <div key={reason}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <Text strong style={{ fontSize: 12, fontFamily: 'monospace' }}>
-                          {reason}
-                        </Text>
-                        <Text type="secondary" style={{ fontSize: 12 }}>
-                          {count} failures ({pct}%)
-                        </Text>
-                      </div>
-                      <Progress
-                        percent={pct}
-                        strokeColor={
-                          reason === 'DUPLICATE_ID_CONFLICT'
-                            ? '#f97316'
-                            : reason === 'MISSING_FIELD'
-                            ? '#ec4899'
-                            : '#ef4444'
-                        }
-                        size="small"
-                        showInfo={false}
-                      />
-                    </div>
-                  );
-                })}
-              </Space>
-            ) : (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
-                <CheckCircleFilled style={{ fontSize: 32, color: '#10b981', marginBottom: 8 }} />
-                <div>Zero rejections recorded. Run an ingestion batch to observe R5 analytics.</div>
-              </div>
-            )}
-          </Card>
-        </Col>
-      </Row>
+                    <Progress
+                      percent={pct}
+                      strokeColor={
+                        reason === 'DUPLICATE_ID_CONFLICT'
+                          ? '#f97316'
+                          : reason === 'MISSING_FIELD'
+                          ? '#ec4899'
+                          : '#ef4444'
+                      }
+                      size="small"
+                      showInfo={false}
+                    />
+                  </div>
+                </Col>
+              );
+            })}
+          </Row>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)' }}>
+            <CheckCircleFilled style={{ fontSize: 28, color: '#10b981', marginBottom: 8 }} />
+            <div>Zero rejections recorded. Run an ingestion batch to observe R5 analytics.</div>
+          </div>
+        )}
+      </Card>
 
       {/* Row 4: Recent Runs Audit Table */}
       <Card
