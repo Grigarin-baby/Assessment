@@ -86,8 +86,16 @@ function handleMockRequest<T>(endpoint: string, options: RequestInit = {}): T {
   if (path === '/ingest/health') {
     return {
       status: 'ok',
-      server: 'Online (Vercel Preview)',
-      database: 'Connected (Simulated)',
+      server: 'online',
+      database: 'connected',
+    } as unknown as T;
+  }
+
+  // 1b. Auth login endpoint
+  if (path === '/auth/login') {
+    return {
+      accessToken: 'mock-preview-token',
+      user: { name: 'System Admin', email: 'admin@assessment.local', role: 'admin' },
     } as unknown as T;
   }
 
