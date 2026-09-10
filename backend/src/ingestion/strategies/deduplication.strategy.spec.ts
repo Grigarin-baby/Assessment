@@ -53,7 +53,7 @@ describe('Deduplication Strategies', () => {
       expect(decision.action).toBe('UPDATE');
     });
 
-    it('should REJECT if incoming record has older recordedAt timestamp', () => {
+    it('should INSERT_HISTORY if incoming record has older recordedAt timestamp', () => {
       const existing = {
         id: 'r-001',
         recordedAt: new Date('2026-03-14T10:00:00Z'),
@@ -72,9 +72,31 @@ describe('Deduplication Strategies', () => {
       };
 
       const decision = strategy.evaluate(existing, incoming);
+      expect(decision.action).toBe('INSERT_HISTORY');
+    });
+
+    it('should REJECT if incoming record has exact same timestamp but conflicting payload', () => {
+      const existing = {
+        id: 'r-001',
+        recordedAt: new Date('2026-03-14T10:00:00Z'),
+        value: 42,
+        status: 'OK',
+        payloadHash: 'hash-first',
+      };
+
+      const incoming: NormalizedRecord = {
+        id: 'r-001',
+        source: 'alpha',
+        recordedAt: new Date('2026-03-14T10:00:00Z'), // same timestamp
+        value: 99,
+        status: 'WARN',
+        payloadHash: 'hash-second',
+      };
+
+      const decision = strategy.evaluate(existing, incoming);
       expect(decision.action).toBe('REJECT');
       if (decision.action === 'REJECT') {
-        expect(decision.reason).toBe(REJECTION_REASONS.OUT_OF_ORDER_DUPLICATE);
+        expect(decision.reason).toBe(REJECTION_REASONS.DUPLICATE_ID_CONFLICT);
       }
     });
   });

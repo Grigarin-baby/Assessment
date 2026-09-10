@@ -9,6 +9,7 @@
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
     "ingest": "ts-node src/cli/ingest.ts",
+    "db:clean": "ts-node src/cli/clean-db.ts",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "test": "jest --passWithNoTests"

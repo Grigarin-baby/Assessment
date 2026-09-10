@@ -142,10 +142,12 @@ export class IngestionService {
         if (dbRecord) {
           existing = {
             id: dbRecord.id,
+            source: dbRecord.source,
             recordedAt: dbRecord.recordedAt,
             value: dbRecord.value,
             status: dbRecord.status,
             payloadHash: dbRecord.payloadHash,
+            version: dbRecord.version,
           };
         }
       }
@@ -165,6 +167,7 @@ export class IngestionService {
             JSON.stringify(raw),
             decision.reason,
             [decision.reason],
+            existing.id, // Link nullable FK to the existing master record
           );
           this.incrementRejection(rejectionSummary, decision.reason);
           rejectedCount++;
@@ -172,8 +175,24 @@ export class IngestionService {
         }
 
         if (decision.action === 'UPDATE') {
-          // Update existing accepted record
-          await this.prisma.acceptedRecord.update({
+          // Candidate is strictly NEWER:
+          // 1. Archive current master snapshot into record_history (Child)
+          await this.prisma.recordHistory.create({
+            data: {
+              acceptedRecordId: existing.id,
+              source: existing.source || candidate.source,
+              recordedAt: existing.recordedAt,
+              value: existing.value,
+              status: existing.status,
+              payloadHash: existing.payloadHash,
+              version: existing.version || 1,
+              ingestRunId: ingestRun.id,
+              replacedAt: new Date(),
+            },
+          });
+
+          // 2. Update accepted_records with candidate data as active Master
+          const updated = await this.prisma.acceptedRecord.update({
             where: { id: candidate.id },
             data: {
               source: candidate.source,
@@ -188,11 +207,46 @@ export class IngestionService {
 
           batchSeenRecords.set(candidate.id, {
             id: candidate.id,
+            source: candidate.source,
             recordedAt: candidate.recordedAt,
             value: candidate.value,
             status: candidate.status,
             payloadHash: candidate.payloadHash,
+            version: updated.version,
           });
+
+          acceptedCount++;
+          continue;
+        }
+
+        if (decision.action === 'INSERT_HISTORY') {
+          // Candidate is OLDER:
+          // Insert candidate directly into record_history as a historical child
+          const childVersion = (existing.version || 1) + 1;
+          await this.prisma.recordHistory.create({
+            data: {
+              acceptedRecordId: existing.id,
+              source: candidate.source,
+              recordedAt: candidate.recordedAt,
+              value: candidate.value,
+              status: candidate.status,
+              payloadHash: candidate.payloadHash,
+              version: childVersion,
+              ingestRunId: ingestRun.id,
+              replacedAt: new Date(),
+            },
+          });
+
+          // Master remains the latest; increment master version to reflect total revisions
+          const updated = await this.prisma.acceptedRecord.update({
+            where: { id: existing.id },
+            data: {
+              version: { increment: 1 },
+            },
+          });
+
+          existing.version = updated.version;
+          batchSeenRecords.set(existing.id, existing);
 
           acceptedCount++;
           continue;
@@ -214,10 +268,12 @@ export class IngestionService {
 
       batchSeenRecords.set(candidate.id, {
         id: candidate.id,
+        source: candidate.source,
         recordedAt: candidate.recordedAt,
         value: candidate.value,
         status: candidate.status,
         payloadHash: candidate.payloadHash,
+        version: 1,
       });
 
       acceptedCount++;
@@ -254,6 +310,7 @@ export class IngestionService {
     rawPayload: string,
     primaryReason: string,
     allReasons: string[],
+    acceptedRecordId?: string | null,
   ): Promise<void> {
     await this.prisma.rejectedRecord.create({
       data: {
@@ -262,6 +319,7 @@ export class IngestionService {
         primaryReason,
         allReasons: JSON.stringify(allReasons),
         ingestRunId,
+        acceptedRecordId: acceptedRecordId || null,
       },
     });
   }

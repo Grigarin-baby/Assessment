@@ -3,15 +3,18 @@ import { NormalizedRecord, REJECTION_REASONS } from '../../domain/types';
 
 export interface ExistingRecordSnapshot {
   id: string;
+  source?: string;
   recordedAt: Date;
   value: number;
   status: string;
   payloadHash: string;
+  version?: number;
 }
 
 export type DeduplicationAction = 
   | { action: 'SKIP' }
   | { action: 'UPDATE' }
+  | { action: 'INSERT_HISTORY' }
   | { action: 'REJECT'; reason: string };
 
 export interface IDeduplicationStrategy {
@@ -35,17 +38,14 @@ export class UpdateIfNewerStrategy implements IDeduplicationStrategy {
     const existingTime = existing.recordedAt.getTime();
     const incomingTime = incoming.recordedAt.getTime();
 
-    // 2. Incoming record has a strictly newer timestamp -> UPDATE
+    // 2. Incoming record has a strictly newer timestamp -> UPDATE master (archive old master to history)
     if (incomingTime > existingTime) {
       return { action: 'UPDATE' };
     }
 
-    // 3. Incoming record has an older timestamp -> REJECT as out of order
+    // 3. Incoming record has an older timestamp -> INSERT_HISTORY (archive incoming as historical child)
     if (incomingTime < existingTime) {
-      return {
-        action: 'REJECT',
-        reason: REJECTION_REASONS.OUT_OF_ORDER_DUPLICATE,
-      };
+      return { action: 'INSERT_HISTORY' };
     }
 
     // 4. Same timestamp but conflicting payload -> REJECT conflict

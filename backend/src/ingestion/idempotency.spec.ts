@@ -14,6 +14,7 @@ describe('Ingestion Idempotency & Deduplication (Requirement R3)', () => {
     dbAcceptedRecords = new Map();
     dbRejectedRecords = [];
     dbIngestRuns = [];
+    const dbRecordHistory: any[] = [];
 
     mockPrisma = {
       ingestRun: {
@@ -41,6 +42,13 @@ describe('Ingestion Idempotency & Deduplication (Requirement R3)', () => {
           const updated = { ...existing, ...data, version: (existing?.version || 1) + 1 };
           dbAcceptedRecords.set(where.id, updated);
           return Promise.resolve(updated);
+        }),
+      },
+      recordHistory: {
+        create: jest.fn().mockImplementation(({ data }) => {
+          const hist = { id: `hist-${Date.now()}-${Math.random()}`, ...data };
+          dbRecordHistory.push(hist);
+          return Promise.resolve(hist);
         }),
       },
       rejectedRecord: {
@@ -82,28 +90,37 @@ describe('Ingestion Idempotency & Deduplication (Requirement R3)', () => {
     expect(dbAcceptedRecords.size).toBe(3);
   });
 
-  it('Handles conflicting intra-batch and cross-batch updates deterministically', async () => {
-    // Initial ingestion
+  it('Handles conflicting intra-batch and cross-batch updates with parent/child history', async () => {
+    // 1. Initial ingestion (Master version 1)
     await ingestionService.ingestPayload([
       { id: 'r-100', source: 'alpha', recordedAt: '2026-03-14T10:00:00Z', value: 20, status: 'OK' },
     ]);
     expect(dbAcceptedRecords.get('r-100').value).toBe(20);
 
-    // New batch with a newer timestamp -> should update value
+    // 2. Newer timestamp -> updates master and archives previous version to recordHistory
     const updateRun = await ingestionService.ingestPayload([
       { id: 'r-100', source: 'alpha', recordedAt: '2026-03-14T10:30:00Z', value: 85, status: 'WARN' },
     ]);
     expect(updateRun.accepted).toBe(1);
     expect(dbAcceptedRecords.get('r-100').value).toBe(85);
     expect(dbAcceptedRecords.get('r-100').status).toBe('WARN');
+    expect(mockPrisma.recordHistory.create).toHaveBeenCalledTimes(1);
 
-    // Batch with an older timestamp -> should reject as out-of-order
+    // 3. Older timestamp -> accepted into recordHistory as child revision; master remains latest
     const staleRun = await ingestionService.ingestPayload([
       { id: 'r-100', source: 'alpha', recordedAt: '2026-03-14T09:00:00Z', value: 10, status: 'FAIL' },
     ]);
-    expect(staleRun.rejected).toBe(1);
-    expect(staleRun.rejectionSummary['OUT_OF_ORDER_DUPLICATE']).toBe(1);
-    // Value remains 85
+    expect(staleRun.accepted).toBe(1);
     expect(dbAcceptedRecords.get('r-100').value).toBe(85);
+    expect(mockPrisma.recordHistory.create).toHaveBeenCalledTimes(2);
+
+    // 4. Same timestamp with conflicting payload -> rejected with DUPLICATE_ID_CONFLICT and acceptedRecordId linked
+    const conflictRun = await ingestionService.ingestPayload([
+      { id: 'r-100', source: 'alpha', recordedAt: '2026-03-14T10:30:00Z', value: 99, status: 'FAIL' },
+    ]);
+    expect(conflictRun.rejected).toBe(1);
+    expect(conflictRun.rejectionSummary['DUPLICATE_ID_CONFLICT']).toBe(1);
+    const lastRejection = dbRejectedRecords[dbRejectedRecords.length - 1];
+    expect(lastRejection.acceptedRecordId).toBe('r-100');
   });
 });

@@ -6,6 +6,7 @@ export interface QueryRecordsDto {
   status?: string;
   from?: string;
   to?: string;
+  hasHistory?: string;
   page?: number;
   limit?: number;
   sortBy?: string;
@@ -31,6 +32,12 @@ export class RecordsService {
       where.status = query.status.toUpperCase();
     }
 
+    if (query.hasHistory === 'true') {
+      where.history = { some: {} };
+    } else if (query.hasHistory === 'false') {
+      where.history = { none: {} };
+    }
+
     if (query.from || query.to) {
       where.recordedAt = {};
       if (query.from) {
@@ -51,6 +58,11 @@ export class RecordsService {
         skip,
         take: limit,
         orderBy: { [sortBy]: sortOrder },
+        include: {
+          _count: {
+            select: { history: true },
+          },
+        },
       }),
       this.prisma.acceptedRecord.count({ where }),
     ]);
@@ -69,7 +81,33 @@ export class RecordsService {
   async getRecordById(id: string) {
     return this.prisma.acceptedRecord.findUnique({
       where: { id },
+      include: {
+        _count: {
+          select: { history: true },
+        },
+      },
     });
+  }
+
+  async getRecordHistory(id: string) {
+    const record = await this.prisma.acceptedRecord.findUnique({
+      where: { id },
+      include: {
+        history: {
+          orderBy: { recordedAt: 'desc' },
+        },
+      },
+    });
+
+    if (!record) {
+      return null;
+    }
+
+    return {
+      masterId: record.id,
+      master: record,
+      history: record.history,
+    };
   }
 
   async getDistinctSources(): Promise<string[]> {

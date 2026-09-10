@@ -23,6 +23,44 @@ export class IngestionController {
   ) {}
 
   @Public()
+  @Get('health')
+  async getHealth() {
+    let database = 'connected';
+    try {
+      await this.prisma.$queryRaw`SELECT 1`;
+    } catch {
+      database = 'disconnected';
+    }
+
+    return {
+      status: 'ok',
+      server: 'online',
+      database,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Public()
+  @Post('clean')
+  async cleanDatabase() {
+    const hist = await this.prisma.recordHistory.deleteMany();
+    const rej = await this.prisma.rejectedRecord.deleteMany();
+    const acc = await this.prisma.acceptedRecord.deleteMany();
+    const runs = await this.prisma.ingestRun.deleteMany();
+
+    return {
+      success: true,
+      message: 'Database records, dead vault, and history wiped successfully.',
+      deleted: {
+        recordHistory: hist.count,
+        rejectedRecords: rej.count,
+        acceptedRecords: acc.count,
+        ingestRuns: runs.count,
+      },
+    };
+  }
+
+  @Public()
   @Post('sample')
   async runSampleIngestion() {
     const samplePath = path.resolve(process.cwd(), '../sample-data/records_sample_250.json');

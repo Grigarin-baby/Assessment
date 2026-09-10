@@ -15,8 +15,8 @@
 - **Phase 4: Authentication & REST API**: ✅ Complete
 - **Phase 5: Automated Testing Suite**: ✅ Complete (21/21 Jest tests passing)
 - **Phase 6: Frontend Next.js Dashboard**: ✅ Complete
-- **Phase 7: End-to-End Verification & Final Polish**: ✅ Backend & Database Verified / Frontend npm install pending
-
+- **Phase 7: End-to-End Verification & Database Setup**: ✅ Complete (PostgreSQL Live)
+- **Phase 8: Modular Rule Engine & Parent/Child Record History**: ✅ Complete (27/27 tests passing, PostgreSQL synced)
 
 ---
 
@@ -105,3 +105,28 @@
 - [x] **Task 7.1: Verify Prisma Client Generation and Database Migration (PostgreSQL configured & synced)**
 - [x] **Task 7.2: Execute Jest Automated Test Suite (21/21 passing)**
 - [x] **Task 7.3: Test CLI Ingest Execution on Sample File (Verified on PostgreSQL with idempotency)**
+
+### Phase 8: Modular Rule Engine & Parent/Child Record History
+- [x] **Task 8.1: Relational Database Schema & Foreign Keys Migration**
+  - [x] Subtask 8.1.1: Add `RecordHistory` model with strict FK `acceptedRecordId -> accepted_records(id)`
+  - [x] Subtask 8.1.2: Add nullable FK `acceptedRecordId` to `rejected_records` referencing `accepted_records(id)`
+  - [x] Subtask 8.1.3: Run `npx prisma db push` and verify PostgreSQL foreign keys
+- [x] **Task 8.2: Ingestion Rule Engine Architecture**
+  - [x] Subtask 8.2.1: Define `IngestionRule`, `RuleContext`, `RuleEngineResult` in `src/ingestion/rules/rule.interface.ts`
+  - [x] Subtask 8.2.2: Implement 6 modular rule classes in `src/ingestion/rules/built-in/`
+  - [x] Subtask 8.2.3: Implement `RuleEngineService` and wire into `IngestionModule`
+  - [x] Subtask 8.2.4: Refactor `RecordValidatorService` to delegate to `RuleEngineService`
+- [x] **Task 8.3: Ingestion Pipeline & Parent/Child History Strategy**
+  - [x] Subtask 8.3.1: Update `IngestionService` duplicate handling (archive master to history on newer, insert directly on older)
+  - [x] Subtask 8.3.2: Link conflicting duplicate rejections to master record via `acceptedRecordId`
+- [x] **Task 8.4: Backend REST API Endpoints**
+  - [x] Subtask 8.4.1: Add `GET /api/records/:id/history` endpoint in `RecordsController`
+  - [x] Subtask 8.4.2: Include `_count.history` in `GET /api/records`
+  - [x] Subtask 8.4.3: Eager load `acceptedRecord` in `GET /api/rejections`
+- [x] **Task 8.5: Frontend UI Interactive Dropdowns**
+  - [x] Subtask 8.5.1: Build expandable revision history accordion on Accepted Records table (`/records`)
+  - [x] Subtask 8.5.2: Build master record comparison dropdown in Dead-Letter Vault (`/rejections`)
+- [x] **Task 8.6: End-to-End Verification & Automated Testing**
+  - [x] Subtask 8.6.1: Run Jest unit test suite (`npm test` — 27/27 tests passing across 6 suites)
+  - [x] Subtask 8.6.2: Test CLI ingestion on sample dataset and verify `record_history` rows in PostgreSQL
+

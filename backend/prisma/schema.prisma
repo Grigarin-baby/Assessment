@@ -37,17 +37,23 @@ model IngestRun {
 }
 
 model AcceptedRecord {
-  id          String    @id // The record's unique ID (UUID or unique string)
-  source      String
-  recordedAt  DateTime
-  value       Int
-  status      String    // "OK", "WARN", "FAIL"
-  payloadHash String    // SHA-256 fingerprint for idempotency check
-  version     Int       @default(1)
-  ingestRunId String
-  ingestRun   IngestRun @relation(fields: [ingestRunId], references: [id], onDelete: Cascade)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id              String           @id // The record's unique ID (UUID or unique string)
+  source          String
+  recordedAt      DateTime
+  value           Int
+  status          String           // "OK", "WARN", "FAIL"
+  payloadHash     String           // SHA-256 fingerprint for idempotency check
+  version         Int              @default(1)
+  ingestRunId     String
+  ingestRun       IngestRun        @relation(fields: [ingestRunId], references: [id], onDelete: Cascade)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // 1-to-Many Relation to Historical Revisions:
+  history         RecordHistory[]
+
+  // 1-to-Many Relation to Competing Rejected Records:
+  rejectedRecords RejectedRecord[]
 
   @@index([source])
   @@index([status])
@@ -56,17 +62,41 @@ model AcceptedRecord {
   @@map("accepted_records")
 }
 
+model RecordHistory {
+  id               String         @id @default(uuid())
+  acceptedRecordId String         // Foreign Key to AcceptedRecord.id (Document ID)
+  acceptedRecord   AcceptedRecord @relation(fields: [acceptedRecordId], references: [id], onDelete: Cascade)
+  source           String
+  recordedAt       DateTime       // Historical timestamp (Child)
+  value            Int
+  status           String
+  payloadHash      String
+  version          Int
+  ingestRunId      String?
+  replacedAt       DateTime       @default(now())
+
+  @@index([acceptedRecordId])
+  @@index([recordedAt])
+  @@map("record_history")
+}
+
 model RejectedRecord {
-  id            String    @id @default(uuid())
-  originalId    String?
-  rawPayload    String    // Complete serialized raw JSON for 100% recoverability
-  primaryReason String    // Primary categorized error reason for R5 grouping
-  allReasons    String    // Serialized JSON array of all validation failures
-  ingestRunId   String
-  ingestRun     IngestRun @relation(fields: [ingestRunId], references: [id], onDelete: Cascade)
-  createdAt     DateTime  @default(now())
+  id               String          @id @default(uuid())
+  originalId       String?
+  rawPayload       String          // Complete serialized raw JSON for 100% recoverability
+  primaryReason    String          // Primary categorized error reason for R5 grouping
+  allReasons       String          // Serialized JSON array of all validation failures
+  ingestRunId      String
+  ingestRun        IngestRun       @relation(fields: [ingestRunId], references: [id], onDelete: Cascade)
+
+  // Nullable Foreign Key to Competing Accepted Master Record:
+  acceptedRecordId String?
+  acceptedRecord   AcceptedRecord? @relation(fields: [acceptedRecordId], references: [id], onDelete: SetNull)
+
+  createdAt        DateTime        @default(now())
 
   @@index([primaryReason])
   @@index([ingestRunId])
+  @@index([acceptedRecordId])
   @@map("rejected_records")
 }

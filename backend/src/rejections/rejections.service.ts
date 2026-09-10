@@ -38,6 +38,9 @@ export class RejectionsService {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
+        include: {
+          acceptedRecord: true,
+        },
       }),
       this.prisma.rejectedRecord.count({ where }),
     ]);
@@ -62,6 +65,9 @@ export class RejectionsService {
   async getRejectionById(id: string) {
     const record = await this.prisma.rejectedRecord.findUnique({
       where: { id },
+      include: {
+        acceptedRecord: true,
+      },
     });
 
     if (!record) {

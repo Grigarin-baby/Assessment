@@ -21,7 +21,171 @@
 
 ---
 
-## 2. Ingestion Rule Engine Architecture
+## 2. End-to-End Record Lifecycle Flowchart (PDF Requirements Mapping)
+
+### 2.1 Visual Pictorial Flow Diagram (Text & Preview Compatible)
+
+```text
+====================================================================================================
+                                      RECORD INGESTION LIFECYCLE
+====================================================================================================
+
+                             ┌───────────────────────────────┐
+                             │     Incoming Raw Record       │
+                             │  {"id":"r-001","value":42,...}│
+                             └───────────────┬───────────────┘
+                                             │
+                                             ▼
+                                  [ 1. Syntax Check ]
+                                 /                   \
+                     (Malformed Line)             (Valid JSON)
+                           /                           \
+                          ▼                             ▼
+            ┌───────────────────────────┐     ┌───────────────────────────────────┐
+            │    DEAD-LETTER VAULT      │     │       INGESTION RULE ENGINE       │
+            │    (rejected_records)     │     │                                   │
+            │  Reason: MALFORMED_RECORD │     │  [R1] Required Fields Check       │
+            └───────────────────────────┘     │  [R2] String & Whitespace Sanity  │
+                          ▲                   │  [R3] Cascading Date Normalization│
+                          │                   │  [R4] Integer Bounds [0, 100]     │
+                          │                   │  [R5] Status Enum (OK, WARN, FAIL)│
+                          │                   └─────────────────┬─────────────────┘
+                          │                                     │
+                   (Fails Any Rule)                      (Passes All Rules)
+                          │                                     │
+                          └─────────────────────────────────────┤
+                                                                ▼
+                                              ┌───────────────────────────────────┐
+                                              │    Normalized Candidate Record    │
+                                              │    + SHA-256 Content Fingerprint  │
+                                              └─────────────────┬─────────────────┘
+                                                                │
+                                                                ▼
+                                                   [ 2. Duplicate ID Check ]
+                                                  /                         \
+                                         (First-Time ID)               (Duplicate ID)
+                                               /                               \
+                                              ▼                                 ▼
+                                 ┌─────────────────────────┐      [ 3. Timestamp Comparison ]
+                                 │   Insert Active Master  │     /             │             \
+                                 │   (accepted_records)    │ (Same Hash) (Newer Time)    (Older Time)
+                                 │   Role: PARENT (v1)     │    │              │              │
+                                 └─────────────────────────┘    ▼              │              ▼
+                                              ▲              [ SKIP ]          │     ┌─────────────────────────┐
+                                              │          (R3 Idempotent)       │     │  Insert History Child   │
+                                              │                                ▼     │    (record_history)     │
+                                              │                ┌───────────────────┐ │  Role: CHILD (Older)    │
+                                              │                │ 1. Archive Old    │ │  FK: acceptedRecordId   │
+                                              │                │    Master to Child│ └─────────────────────────┘
+                                              │                │ 2. Update Master  │
+                                              └────────────────┤    with Candidate │
+                                                               └───────────────────┘
+```
+
+### 2.2 Parent Master vs. Historical Child Visual Card Representation
+
+```text
+┌────────────────────────────────────────────────────────┐
+│  ACTIVE MASTER RECORD (Parent Table: accepted_records) │
+├───────────────────┬────────────────────────────────────┤
+│ id (PK)           │ "r-0001" (Business Document ID)    │
+│ source            │ "alpha"                            │
+│ recordedAt        │ 2026-03-14T10:15:00Z (LATEST)     │
+│ value             │ 85                                 │
+│ status            │ "WARN"                             │
+│ version           │ 2                                  │
+└───────────────────┴──┬─────────────────────────────────┘
+                       │
+                       │ 1-to-Many Foreign Key Relation
+                       │ (acceptedRecordId REFERENCES accepted_records.id)
+                       ▼
+┌────────────────────────────────────────────────────────┐
+│  HISTORICAL AUDIT RECORD (Child Table: record_history) │
+├───────────────────┬────────────────────────────────────┤
+│ id (PK)           │ "a83f910b-..." (Internal UUID)     │
+│ acceptedRecordId  │ "r-0001" (Exact Document ID) ◄─────┼── FK LINK
+│ source            │ "alpha"                            │
+│ recordedAt        │ 2026-03-14T10:12:00Z (OLDER)       │
+│ value             │ 25                                 │
+│ status            │ "OK"                               │
+│ version           │ 1                                  │
+│ replacedAt        │ 2026-09-10T11:40:00Z               │
+└────────────────────────────────────────────────────────┘
+```
+
+### 2.3 Interactive Mermaid Flowchart (Markdown Preview)
+
+```mermaid
+flowchart TD
+    Start(["📥 Incoming Record from File<br/>(JSON Array / NDJSON)"]) --> SyntaxCheck{"Syntax Valid?"}
+    
+    SyntaxCheck -- "Malformed JSON" --> RejMalformed["❌ Dead-Letter Vault (rejected_records)<br/>• primaryReason: MALFORMED_RECORD<br/>• rawPayload preserved (R2)"]
+    
+    SyntaxCheck -- "Well-formed" --> RuleEngine["⚙️ Ingestion Rule Engine (R1)<br/>Sequential Rule Pipeline"]
+    
+    subgraph Rules["Rule Engine Validation Pipeline (Section 3 Rules)"]
+        R_Fields["1. RequiredFieldsRule<br/>id, source, recordedAt, value, status"]
+        R_Text["2. String Sanity Rules<br/>id & source not empty or whitespace-only"]
+        R_Date["3. DateNormalizerRule<br/>ISO 8601, Epoch, SQL, RFC -> Canonical UTC Date"]
+        R_Num["4. IntegerRangeRule<br/>isInteger == true && 0 <= value <= 100"]
+        R_Status["5. StatusEnumRule<br/>Strict match in ('OK', 'WARN', 'FAIL')"]
+        
+        R_Fields --> R_Text --> R_Date --> R_Num --> R_Status
+    end
+    
+    RuleEngine --> Rules
+    Rules --> ValidationDecision{"Fails any rule?"}
+    
+    ValidationDecision -- "YES (Invalid Record)" --> RejVault["❌ Dead-Letter Vault (rejected_records) (R2)<br/>• rawPayload: untouched raw JSON string<br/>• primaryReason: deterministic code for R5 grouping<br/>• allReasons: full array of forensic errors"]
+    
+    ValidationDecision -- "NO (Usable Record)" --> HashGen["🔑 Compute Normalized Fingerprint<br/>payloadHash = SHA-256(id|source|UTC_date|val|status)"]
+    
+    HashGen --> CheckDuplicate{"Has ID been seen before?<br/>(Batch Cache or accepted_records)"}
+    
+    CheckDuplicate -- "NO (First time ID is seen)" --> InsertParent["✅ Insert Master Parent (accepted_records) (R1)<br/>• id: exact document ID<br/>• version: 1<br/>• recordedAt: latest timestamp"]
+    
+    CheckDuplicate -- "YES (Duplicate ID)" --> DupEvaluation{"Compare incoming vs existing (Section 6 & R3)"}
+    
+    DupEvaluation -- "Identical Payload Hash" --> SkipNoOp["⏭️ SKIP Duplicate (R3 Idempotency)<br/>• 0 duplicate rows inserted<br/>• skippedDuplicates counter incremented"]
+    
+    DupEvaluation -- "Same ID + Identical Timestamp<br/>but Conflicting Values" --> RejConflict["❌ Dead-Letter Vault (rejected_records) (R2)<br/>• primaryReason: DUPLICATE_ID_CONFLICT"]
+    
+    DupEvaluation -- "Same ID + NEWER Timestamp<br/>(candidate.time > existing.time)" --> UpdateParentArchiveChild["🔄 Update Parent + Archive Child<br/>1. Archive current master snapshot to record_history (FK: acceptedRecordId)<br/>2. Update accepted_records with candidate (New Parent)<br/>3. Increment parent version"]
+    
+    DupEvaluation -- "Same ID + OLDER Timestamp<br/>(candidate.time < existing.time)" --> InsertChildOnly["📜 Insert Historical Child (record_history)<br/>1. Insert candidate directly into record_history (FK: acceptedRecordId)<br/>2. Parent in accepted_records remains untouched (latest wins)<br/>3. Increment parent version"]
+    
+    InsertParent --> CompleteRun
+    UpdateParentArchiveChild --> CompleteRun
+    InsertChildOnly --> CompleteRun
+    SkipNoOp --> CompleteRun
+    RejVault --> CompleteRun
+    RejConflict --> CompleteRun
+    RejMalformed --> CompleteRun
+    
+    subgraph Output["Reporting & Querying"]
+        CompleteRun(["🏁 Finalize Ingestion Run (ingest_runs)"]) --> R5Report["📊 R5 Terminal / API Summary Report<br/>• Total Processed, Accepted %, Rejected %<br/>• Skipped Duplicates count<br/>• Rejections grouped by primaryReason"]
+        R5Report --> QueryUI["🌐 R4 Query & Frontend Dashboard Explorer<br/>• Filter accepted by source, status, date range<br/>• Expandable History Dropdown (Parent -> Children)<br/>• Dead-Letter Vault inspection (raw JSON + errors)"]
+    end
+```
+
+### 2.1 PDF Requirement Mapping Table
+
+| Flow Step | Trigger Condition | System Action & Destination | PDF Spec Requirement |
+|---|---|---|---|
+| **Syntax Check** | Malformed JSON line | Persist raw string into `rejected_records` | **R2:** *"Nothing disappears silently"* |
+| **Rule Engine** | Clean record passing 5 rules | Compute `payloadHash`, prepare candidate | **R1:** *"Check record against rules, store ones that pass"* |
+| **Rule Engine** | Rule violation (e.g. `value: -1`, `status: "ok"`) | Persist raw payload, primary reason, and all reasons to `rejected_records` | **R2:** *"Every record rejected must be recoverable with reason"* |
+| **New ID** | ID never seen before | Insert into `accepted_records` as active parent | **R1:** Usable records stored |
+| **Identical Duplicate** | Same ID and identical payload hash | Skip record insertion without modifying counts | **R3:** *"Running twice over same file must not duplicate anything"* |
+| **Newer Duplicate** | Same ID with strictly newer `recordedAt` | Archive existing master to `record_history` (FK), update `accepted_records` | **Section 6:** Explicit trade-off (latest event timestamp wins) |
+| **Older Duplicate** | Same ID with older `recordedAt` | Insert directly into `record_history` as historical child (FK) | **Section 6 & User Spec:** Master remains latest; older becomes child |
+| **Conflicting Duplicate** | Same ID, exact same millisecond, different value | Reject into `rejected_records` with `DUPLICATE_ID_CONFLICT` | **R2:** Unresolvable ambiguity captured in audit vault |
+| **Run Finalization** | Batch finished | Emit ASCII summary table & API response grouped by reason | **R5:** *"Report accepted/rejected counts grouped by reason"* |
+| **Data Query** | User queries `/api/records` or Dashboard | Filter by `source`, `status`, `from`/`to`, and inspect history | **R4:** *"Provide a way to query what you stored"* |
+
+---
+
+## 3. Ingestion Rule Engine Architecture
 
 ```mermaid
 flowchart TD
@@ -125,8 +289,10 @@ Register it in `IngestionModule`. **Existing code is untouched. Zero regression 
 ```mermaid
 erDiagram
     accepted_records ||--o{ record_history : "has older revisions (FK: acceptedRecordId)"
+    accepted_records ||--o{ rejected_records : "has competing duplicates (Nullable FK: acceptedRecordId)"
     ingest_runs ||--o{ accepted_records : "batch tracks"
     ingest_runs ||--o{ record_history : "batch tracks"
+    ingest_runs ||--o{ rejected_records : "batch tracks"
 
     accepted_records {
         string id PK "Business Document ID (e.g. r-0001)"
@@ -151,26 +317,40 @@ erDiagram
         string ingestRunId FK
         datetime replacedAt "Timestamp when superseded"
     }
+
+    rejected_records {
+        string id PK "UUID"
+        string originalId "Raw string ID if present"
+        string rawPayload "Untouched JSON string"
+        string primaryReason "Error categorization (R5)"
+        string allReasons "JSON array of all errors"
+        string acceptedRecordId FK "Nullable FK to accepted_records(id)"
+        string ingestRunId FK
+        datetime createdAt
+    }
 ```
 
 ### 3.2 Prisma Schema Definition
 
 ```prisma
 model AcceptedRecord {
-  id          String          @id // The record's unique business ID (from incoming document)
-  source      String
-  recordedAt  DateTime        // Latest point in time (Parent)
-  value       Int
-  status      String          // "OK", "WARN", "FAIL"
-  payloadHash String
-  version     Int             @default(1)
-  ingestRunId String
-  ingestRun   IngestRun       @relation(fields: [ingestRunId], references: [id], onDelete: Cascade)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id              String          @id // The record's unique business ID (from incoming document)
+  source          String
+  recordedAt      DateTime        // Latest point in time (Parent)
+  value           Int
+  status          String          // "OK", "WARN", "FAIL"
+  payloadHash     String
+  version         Int             @default(1)
+  ingestRunId     String
+  ingestRun       IngestRun       @relation(fields: [ingestRunId], references: [id], onDelete: Cascade)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   // 1-to-Many Relation to Historical Revisions:
-  history     RecordHistory[]
+  history         RecordHistory[]
+
+  // 1-to-Many Relation to Rejected Duplicate Collisions (Nullable FK):
+  rejectedRecords RejectedRecord[]
 
   @@index([source])
   @@index([status])
@@ -195,6 +375,27 @@ model RecordHistory {
   @@index([acceptedRecordId])
   @@index([recordedAt])
   @@map("record_history")
+}
+
+model RejectedRecord {
+  id               String          @id @default(uuid())
+  originalId       String?
+  rawPayload       String
+  primaryReason    String
+  allReasons       String
+  ingestRunId      String
+  ingestRun        IngestRun       @relation(fields: [ingestRunId], references: [id], onDelete: Cascade)
+
+  // Nullable Foreign Key to Competing Accepted Master Record:
+  acceptedRecordId String?
+  acceptedRecord   AcceptedRecord? @relation(fields: [acceptedRecordId], references: [id], onDelete: SetNull)
+
+  createdAt        DateTime        @default(now())
+
+  @@index([primaryReason])
+  @@index([ingestRunId])
+  @@index([acceptedRecordId])
+  @@map("rejected_records")
 }
 ```
 
@@ -278,22 +479,49 @@ Returns all historical child records for a document ID in reverse chronological 
 
 ---
 
-## 5. Frontend UI: Expandable History Dropdown
+## 5. Frontend UI Specifications
 
+### 5.1 Accepted Records Explorer: Expandable Revision Dropdown
 In `frontend/src/app/records/page.tsx`:
-* When `record._count.history > 0`, row displays a badge button:  
+* When `record._count.history > 0`, the row displays an interactive pill button:  
   👉 **`History (N versions) ▾`**
 * Clicking expands an inline revision accordion showing:
   * **Active Master Record (Parent):** Highlighted with a green "Latest Master" badge.
   * **Older Revisions (Children):** Rendered in a sub-table displaying `version`, `recordedAt`, `value`, `status`, and `superseded at`.
 
+### 5.2 Dead-Letter Vault: Competing Master Comparison Dropdown
+In `frontend/src/app/rejections/page.tsx`:
+* When a rejection has a foreign key to an accepted record (`rej.acceptedRecord != null`), the row displays a blue comparison badge button:  
+  👉 **`Compare with Master Record ▾`**
+* Expanding it renders an instant side-by-side comparison panel:
+  * **Left Column:** Currently Accepted Master Record (`id`, `value`, `status`, `recordedAt`).
+  * **Right Column:** Rejected Duplicate Record (`rawPayload`, failed condition, `primaryReason = DUPLICATE_ID_CONFLICT`).
+
 ---
 
 ## 6. Implementation Steps
 
-1. **Schema Migration:** Add `RecordHistory` model to `prisma/schema.prisma` and run `npx prisma db push`.
-2. **Rule Engine Implementation:** Create `rules/` directory with `rule.interface.ts`, 6 built-in rule classes, and `RuleEngineService`.
-3. **Pipeline Integration:** Update `IngestionService` to route validation through `RuleEngineService` and store superseded records in `RecordHistory`.
-4. **API Controller:** Expose `GET /api/records/:id/history`.
-5. **Frontend History Accordion:** Add expandable history row in `frontend/src/app/records/page.tsx`.
-6. **Testing & Verification:** Run Jest test suite and verify parent/child rows in PostgreSQL.
+1. **Schema Migration:**
+   * Add `RecordHistory` model to `prisma/schema.prisma` with FK `acceptedRecordId -> AcceptedRecord.id`.
+   * Add nullable FK `acceptedRecordId` to `RejectedRecord` model referencing `AcceptedRecord.id`.
+   * Run `npx prisma db push`.
+2. **Rule Engine Implementation:**
+   * Create `backend/src/ingestion/rules/rule.interface.ts`.
+   * Implement 6 built-in rule classes (`RequiredFieldsRule`, `IdSanityRule`, `SourceSanityRule`, `DateNormalizerRule`, `IntegerRangeRule`, `StatusEnumRule`).
+   * Create `RuleEngineService` and connect to `IngestionModule`.
+3. **Pipeline Integration:**
+   * Route `RecordValidatorService` to `RuleEngineService`.
+   * Update `IngestionService` duplicate handling:
+     * Newer timestamp: archive master snapshot to `RecordHistory`, update master.
+     * Older timestamp: insert directly into `RecordHistory` as child.
+     * Conflicting timestamp: reject to `RejectedRecord` with `acceptedRecordId = candidate.id`.
+4. **API Controller:**
+   * Expose `GET /api/records/:id/history`.
+   * Include `acceptedRecord: true` relation in `GET /api/rejections`.
+5. **Frontend UI Dropdowns:**
+   * Add revision history accordion in `frontend/src/app/records/page.tsx`.
+   * Add master comparison dropdown in `frontend/src/app/rejections/page.tsx`.
+6. **Testing & Verification:**
+   * Run Jest test suite (`npm test`).
+   * Verify parent/child rows and rejection links in PostgreSQL.
+

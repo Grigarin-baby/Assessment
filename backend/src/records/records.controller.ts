@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query, NotFoundException } from '@nestjs/common';
 import { RecordsService, QueryRecordsDto } from './records.service';
 import { Public } from '../auth/guards/public.decorator';
 
@@ -21,6 +21,20 @@ export class RecordsController {
   @Public()
   @Get(':id')
   async getRecordById(@Param('id') id: string) {
-    return this.recordsService.getRecordById(id);
+    const record = await this.recordsService.getRecordById(id);
+    if (!record) {
+      throw new NotFoundException(`Record with ID ${id} not found`);
+    }
+    return record;
+  }
+
+  @Public()
+  @Get(':id/history')
+  async getRecordHistory(@Param('id') id: string) {
+    const history = await this.recordsService.getRecordHistory(id);
+    if (!history) {
+      throw new NotFoundException(`Record with ID ${id} not found`);
+    }
+    return history;
   }
 }
