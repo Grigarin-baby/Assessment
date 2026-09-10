@@ -343,8 +343,8 @@ export default function DashboardPage() {
       )}
 
       {/* Row 1: Primary KPI Cards */}
-      <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} lg={6}>
+      <Row gutter={[12, 12]}>
+        <Col xs={12} sm={12} lg={6}>
           <Card
             bordered={false}
             style={{
@@ -355,18 +355,18 @@ export default function DashboardPage() {
             }}
           >
             <Statistic
-              title={<span style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 600 }}>TOTAL INGESTED RECORDS</span>}
+              title={<span style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 600 }}>TOTAL INGESTED</span>}
               value={stats?.totalProcessed ?? 0}
               prefix={<DatabaseOutlined style={{ color: '#3b82f6', marginRight: 6 }} />}
-              valueStyle={{ color: 'var(--text-primary)', fontWeight: 800 }}
+              valueStyle={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: 22 }}
             />
-            <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
-              Processed across {stats?.totalRuns ?? 0} batch runs
+            <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+              {stats?.totalRuns ?? 0} batch runs
             </div>
           </Card>
         </Col>
 
-        <Col xs={24} sm={12} lg={6}>
+        <Col xs={12} sm={12} lg={6}>
           <Card
             bordered={false}
             style={{
@@ -377,17 +377,17 @@ export default function DashboardPage() {
             }}
           >
             <Statistic
-              title={<span style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 600 }}>ACCEPTED MASTER RECORDS (R1)</span>}
+              title={<span style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 600 }}>ACCEPTED (R1)</span>}
               value={stats?.totalAccepted ?? 0}
-              suffix={<span style={{ fontSize: 13, color: '#10b981', fontWeight: 600 }}>({acceptRate}%)</span>}
+              suffix={<span style={{ fontSize: 12, color: '#10b981', fontWeight: 600 }}>({acceptRate}%)</span>}
               prefix={<CheckCircleFilled style={{ color: '#10b981', marginRight: 6 }} />}
-              valueStyle={{ color: '#10b981', fontWeight: 800 }}
+              valueStyle={{ color: '#10b981', fontWeight: 800, fontSize: 22 }}
             />
-            <Progress percent={acceptRate} strokeColor="#10b981" showInfo={false} size="small" style={{ marginTop: 8 }} />
+            <Progress percent={acceptRate} strokeColor="#10b981" showInfo={false} size="small" style={{ marginTop: 6 }} />
           </Card>
         </Col>
 
-        <Col xs={24} sm={12} lg={6}>
+        <Col xs={12} sm={12} lg={6}>
           <Card
             bordered={false}
             style={{
@@ -398,17 +398,17 @@ export default function DashboardPage() {
             }}
           >
             <Statistic
-              title={<span style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 600 }}>DEAD-LETTER REJECTIONS (R2)</span>}
+              title={<span style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 600 }}>REJECTIONS (R2)</span>}
               value={stats?.totalRejected ?? 0}
-              suffix={<span style={{ fontSize: 13, color: '#ef4444', fontWeight: 600 }}>({rejectRate}%)</span>}
+              suffix={<span style={{ fontSize: 12, color: '#ef4444', fontWeight: 600 }}>({rejectRate}%)</span>}
               prefix={<CloseCircleFilled style={{ color: '#ef4444', marginRight: 6 }} />}
-              valueStyle={{ color: '#ef4444', fontWeight: 800 }}
+              valueStyle={{ color: '#ef4444', fontWeight: 800, fontSize: 22 }}
             />
-            <Progress percent={rejectRate} strokeColor="#ef4444" showInfo={false} size="small" style={{ marginTop: 8 }} />
+            <Progress percent={rejectRate} strokeColor="#ef4444" showInfo={false} size="small" style={{ marginTop: 6 }} />
           </Card>
         </Col>
 
-        <Col xs={24} sm={12} lg={6}>
+        <Col xs={12} sm={12} lg={6}>
           <Card
             bordered={false}
             style={{
@@ -419,13 +419,13 @@ export default function DashboardPage() {
             }}
           >
             <Statistic
-              title={<span style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 600 }}>CHILD AUDIT REVISIONS</span>}
+              title={<span style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 600 }}>CHILD REVISIONS</span>}
               value={stats?.totalHistory ?? 0}
               prefix={<BranchesOutlined style={{ color: '#8b5cf6', marginRight: 6 }} />}
-              valueStyle={{ color: '#8b5cf6', fontWeight: 800 }}
+              valueStyle={{ color: '#8b5cf6', fontWeight: 800, fontSize: 22 }}
             />
-            <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
-              Archived in <code>record_history</code> table
+            <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+              In <code>record_history</code>
             </div>
           </Card>
         </Col>
@@ -479,7 +479,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Dual Cyber Console: Simulator + In-Memory Staging Deck */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
             {/* Left Console: Fast Simulation Stream */}
             <div
               style={{

@@ -249,3 +249,39 @@ body {
   pointer-events: none;
   z-index: 1;
 }
+
+/* Responsive Sider & Drawer Support */
+@media (max-width: 768px) {
+  .desktop-sider-wrapper {
+    display: none !important;
+  }
+}
+@media (min-width: 769px) {
+  .desktop-sider-wrapper {
+    display: flex !important;
+    height: 100vh !important;
+  }
+}
+
+.ant-drawer-content,
+.ant-drawer-wrapper-body {
+  border-radius: 0px !important;
+}
+
+/* Mobile-Friendly Modals - Prevent Viewport Overflow */
+.ant-modal {
+  max-width: calc(100vw - 24px) !important;
+  margin: 12px auto !important;
+}
+
+@media (max-width: 768px) {
+  .ant-modal {
+    top: 16px !important;
+  }
+  .ant-modal .ant-modal-content {
+    padding: 16px !important;
+  }
+  .crm-table-container .ant-table-container {
+    -webkit-overflow-scrolling: touch;
+  }
+}

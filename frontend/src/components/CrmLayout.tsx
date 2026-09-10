@@ -12,6 +12,8 @@ import {
   Space, 
   Tag, 
   Typography,
+  Drawer,
+  Grid,
 } from 'antd';
 import {
   DashboardOutlined,
@@ -29,6 +31,7 @@ import { api } from '@/lib/api';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
+const { useBreakpoint } = Grid;
 
 interface CrmLayoutProps {
   children: React.ReactNode;
@@ -38,6 +41,11 @@ export function CrmLayout({ children }: CrmLayoutProps) {
   const pathname = usePathname();
   const { mode, isDark, toggleTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const screens = useBreakpoint();
+
+  // Desktop vs mobile detection (defaults to desktop if hydrating)
+  const isMobile = screens.md === false;
 
   // Skip CRM layout on login page
   if (pathname === '/login') {
@@ -102,123 +110,149 @@ export function CrmLayout({ children }: CrmLayoutProps) {
     return () => clearInterval(interval);
   }, []);
 
-  return (
-    <Layout style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
-      {/* CRM Left Sidebar */}
-      <Sider
-        trigger={null}
-        collapsible
-        collapsed={collapsed}
-        width={250}
-        collapsedWidth={76}
+  const renderSidebarContent = (isDrawer = false) => (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--sidebar-bg)' }}>
+      {/* Brand Header */}
+      <div
         style={{
-          background: 'var(--sidebar-bg)',
-          borderRight: `1px solid var(--border-color)`,
-          position: 'sticky',
-          top: 0,
-          height: '100vh',
-          zIndex: 100,
+          height: 64,
           display: 'flex',
-          flexDirection: 'column',
-          transition: 'all 0.25s ease',
+          alignItems: 'center',
+          padding: (!isDrawer && collapsed) ? '0 16px' : '0 20px',
+          gap: 12,
+          borderBottom: `1px solid var(--border-color)`,
+          overflow: 'hidden',
         }}
       >
-        {/* Brand Header */}
         <div
           style={{
-            height: 64,
+            width: 38,
+            height: 38,
+            borderRadius: 0,
+            background: 'linear-gradient(135deg, #0284c7 0%, #06b6d4 100%)',
+            border: 'none',
+            boxShadow: '0 2px 8px rgba(6, 182, 212, 0.25)',
             display: 'flex',
             alignItems: 'center',
-            padding: collapsed ? '0 16px' : '0 20px',
-            gap: 12,
-            borderBottom: `1px solid var(--border-color)`,
-            overflow: 'hidden',
+            justifyContent: 'center',
+            color: '#ffffff',
+            fontWeight: 800,
+            fontSize: 16,
+            flexShrink: 0,
           }}
         >
-          <div
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 0,
-              background: 'linear-gradient(135deg, #0284c7 0%, #06b6d4 100%)',
-              border: 'none',
-              boxShadow: '0 2px 8px rgba(6, 182, 212, 0.25)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ffffff',
-              fontWeight: 800,
-              fontSize: 16,
-              flexShrink: 0,
-            }}
-          >
-            RI
+          RI
+        </div>
+        {(isDrawer || !collapsed) && (
+          <div style={{ overflow: 'hidden', whiteSpace: 'nowrap' }}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+              Record CRM
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+              <Tag style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 5px', borderRadius: 0, background: 'var(--bg-hover)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>
+                Enterprise
+              </Tag>
+              <Text type="secondary" style={{ fontSize: 11 }}>v1.0</Text>
+            </div>
           </div>
-          {!collapsed && (
-            <div style={{ overflow: 'hidden', whiteSpace: 'nowrap' }}>
-              <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', lineHeight: 1.2 }}>
-                Record CRM
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                <Tag style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 5px', borderRadius: 0, background: 'var(--bg-hover)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>
-                  Enterprise
-                </Tag>
-                <Text type="secondary" style={{ fontSize: 11 }}>v1.0</Text>
-              </div>
+        )}
+      </div>
+
+      {/* Navigation Menu */}
+      <div style={{ flex: 1, paddingTop: 12, overflowY: 'auto' }}>
+        <Menu
+          theme={isDark ? 'dark' : 'light'}
+          mode="inline"
+          selectedKeys={[pathname]}
+          items={menuItems.map((item) => ({
+            ...item,
+            onClick: () => {
+              if (isDrawer) setMobileDrawerOpen(false);
+            },
+          }))}
+          style={{
+            background: 'transparent',
+            borderRight: 0,
+            fontWeight: 500,
+          }}
+        />
+      </div>
+
+      {/* Sidebar Footer Info - Strictly Anchored to Bottom */}
+      <div
+        style={{
+          marginTop: 'auto',
+          padding: (!isDrawer && collapsed) ? '14px 8px' : '16px 20px',
+          borderTop: `1px solid var(--border-color)`,
+          background: 'var(--sidebar-bg)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Avatar
+            shape="square"
+            style={{
+              background: 'linear-gradient(135deg, #0284c7 0%, #06b6d4 100%)',
+              color: '#ffffff',
+              flexShrink: 0,
+              borderRadius: 0,
+              border: 'none',
+              boxShadow: '0 2px 6px rgba(6, 182, 212, 0.3)',
+            }}
+            icon={<UserOutlined style={{ color: '#ffffff' }} />}
+          />
+          {(isDrawer || !collapsed) && (
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Text strong style={{ display: 'block', fontSize: 13, color: 'var(--text-primary)' }} ellipsis>
+                System Admin
+              </Text>
+              <Text style={{ fontSize: 11, display: 'block', color: '#06b6d4', fontWeight: 600 }} ellipsis>
+                Active Operator
+              </Text>
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
 
-        {/* Navigation Menu */}
-        <div style={{ flex: 1, paddingTop: 12, overflowY: 'auto' }}>
-          <Menu
-            theme={isDark ? 'dark' : 'light'}
-            mode="inline"
-            selectedKeys={[pathname]}
-            items={menuItems}
-            style={{
-              background: 'transparent',
-              borderRight: 0,
-              fontWeight: 500,
-            }}
-          />
-        </div>
-
-        {/* Sidebar Footer Info - Strictly Anchored to Bottom */}
-        <div
+  return (
+    <Layout style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
+      {/* Desktop Left Sidebar (>= 768px) */}
+      <div className="desktop-sider-wrapper">
+        <Sider
+          trigger={null}
+          collapsible
+          collapsed={collapsed}
+          width={250}
+          collapsedWidth={76}
           style={{
-            marginTop: 'auto',
-            padding: collapsed ? '14px 8px' : '16px 20px',
-            borderTop: `1px solid var(--border-color)`,
             background: 'var(--sidebar-bg)',
+            borderRight: `1px solid var(--border-color)`,
+            position: 'sticky',
+            top: 0,
+            height: '100vh',
+            zIndex: 100,
+            display: 'flex',
+            flexDirection: 'column',
+            transition: 'all 0.25s ease',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Avatar
-              shape="square"
-              style={{
-                background: 'linear-gradient(135deg, #0284c7 0%, #06b6d4 100%)',
-                color: '#ffffff',
-                flexShrink: 0,
-                borderRadius: 0,
-                border: 'none',
-                boxShadow: '0 2px 6px rgba(6, 182, 212, 0.3)',
-              }}
-              icon={<UserOutlined style={{ color: '#ffffff' }} />}
-            />
-            {!collapsed && (
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <Text strong style={{ display: 'block', fontSize: 13, color: 'var(--text-primary)' }} ellipsis>
-                  System Admin
-                </Text>
-                <Text style={{ fontSize: 11, display: 'block', color: '#06b6d4', fontWeight: 600 }} ellipsis>
-                  Active Operator
-                </Text>
-              </div>
-            )}
-          </div>
-        </div>
-      </Sider>
+          {renderSidebarContent(false)}
+        </Sider>
+      </div>
+
+      {/* Mobile Slide-Out Drawer (< 768px) */}
+      <Drawer
+        placement="left"
+        open={mobileDrawerOpen}
+        onClose={() => setMobileDrawerOpen(false)}
+        closable={false}
+        width={270}
+        bodyStyle={{ padding: 0, background: 'var(--sidebar-bg)' }}
+        style={{ borderRadius: 0 }}
+      >
+        {renderSidebarContent(true)}
+      </Drawer>
 
       {/* Main App Layout */}
       <Layout style={{ background: 'var(--bg-primary)', transition: 'all 0.25s ease' }}>
@@ -227,7 +261,7 @@ export function CrmLayout({ children }: CrmLayoutProps) {
           style={{
             height: 64,
             lineHeight: 'normal',
-            padding: '0 24px',
+            padding: screens.md ? '0 24px' : '0 14px',
             background: 'var(--header-bg)',
             borderBottom: `1px solid var(--border-color)`,
             display: 'flex',
@@ -240,26 +274,34 @@ export function CrmLayout({ children }: CrmLayoutProps) {
             transition: 'all 0.25s ease',
           }}
         >
-          {/* Left: Collapse Toggle & Aligned Header Title */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          {/* Left: Collapse Toggle & Header Title */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: screens.md ? 14 : 10, minWidth: 0 }}>
             <Button
               type="text"
-              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-              onClick={() => setCollapsed(!collapsed)}
+              icon={isMobile ? <MenuUnfoldOutlined /> : (collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />)}
+              onClick={() => {
+                if (isMobile) {
+                  setMobileDrawerOpen(true);
+                } else {
+                  setCollapsed(!collapsed);
+                }
+              }}
               style={{ fontSize: 16, width: 36, height: 36, minWidth: 36, padding: 0, borderRadius: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
             />
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, lineHeight: 1.3 }}>
-                Data Management CRM
-              </span>
-              <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
+              {screens.sm && (
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, lineHeight: 1.3 }}>
+                  Data Management CRM
+                </span>
+              )}
+              <span style={{ fontSize: screens.sm ? 16 : 14, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {getPageTitle()}
               </span>
             </div>
           </div>
 
           {/* Right: Dual Status Badges, Theme Toggle, Profile Indicator */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: screens.sm ? 10 : 6, flexShrink: 0 }}>
             {/* Backend API Server Status */}
             <Tooltip title={`NestJS API Server at http://localhost:4000 is ${health.server.toUpperCase()}`}>
               <div
@@ -267,8 +309,8 @@ export function CrmLayout({ children }: CrmLayoutProps) {
                   height: 36,
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: 8,
-                  padding: '0 12px',
+                  gap: 6,
+                  padding: screens.lg ? '0 12px' : '0 8px',
                   borderRadius: 0,
                   background: health.server === 'online'
                     ? (isDark ? 'rgba(16, 185, 129, 0.12)' : '#ecfdf5')
@@ -283,9 +325,10 @@ export function CrmLayout({ children }: CrmLayoutProps) {
                 {health.server === 'online' ? (
                   <CheckCircleFilled style={{ color: '#10b981', fontSize: 13 }} />
                 ) : (
-                  <span style={{ display: 'inline-block', width: 8, height: 8, background: '#ef4444', marginRight: 2 }} />
+                  <span style={{ display: 'inline-block', width: 8, height: 8, background: '#ef4444' }} />
                 )}
-                <span>Backend API: {health.server === 'online' ? 'Online' : 'Offline'}</span>
+                {screens.lg && <span>Backend API: {health.server === 'online' ? 'Online' : 'Offline'}</span>}
+                {!screens.lg && screens.sm && <span>API: {health.server === 'online' ? 'On' : 'Off'}</span>}
               </div>
             </Tooltip>
 
@@ -296,8 +339,8 @@ export function CrmLayout({ children }: CrmLayoutProps) {
                   height: 36,
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: 8,
-                  padding: '0 12px',
+                  gap: 6,
+                  padding: screens.lg ? '0 12px' : '0 8px',
                   borderRadius: 0,
                   background: health.database === 'connected'
                     ? (isDark ? 'rgba(16, 185, 129, 0.12)' : '#ecfdf5')
@@ -312,9 +355,10 @@ export function CrmLayout({ children }: CrmLayoutProps) {
                 {health.database === 'connected' ? (
                   <CheckCircleFilled style={{ color: '#10b981', fontSize: 13 }} />
                 ) : (
-                  <span style={{ display: 'inline-block', width: 8, height: 8, background: '#ef4444', marginRight: 2 }} />
+                  <span style={{ display: 'inline-block', width: 8, height: 8, background: '#ef4444' }} />
                 )}
-                <span>PostgreSQL: {health.database === 'connected' ? 'Connected' : 'Disconnected'}</span>
+                {screens.lg && <span>PostgreSQL: {health.database === 'connected' ? 'Connected' : 'Disconnected'}</span>}
+                {!screens.lg && screens.sm && <span>DB: {health.database === 'connected' ? 'Live' : 'Off'}</span>}
               </div>
             </Tooltip>
 
@@ -346,7 +390,7 @@ export function CrmLayout({ children }: CrmLayoutProps) {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 8,
-                padding: '0 12px',
+                padding: screens.md ? '0 12px' : '0 8px',
                 borderRadius: 0,
                 background: 'var(--bg-secondary)',
                 border: isDark ? '1px solid rgba(6, 182, 212, 0.35)' : '1px solid #cbd5e1',
@@ -366,9 +410,11 @@ export function CrmLayout({ children }: CrmLayoutProps) {
                 }}
                 icon={<UserOutlined style={{ fontSize: 11, color: '#ffffff' }} />}
               />
-              <Text strong style={{ fontSize: 12, color: 'var(--text-primary)', lineHeight: 1 }}>
-                System Admin
-              </Text>
+              {screens.md && (
+                <Text strong style={{ fontSize: 12, color: 'var(--text-primary)', lineHeight: 1 }}>
+                  System Admin
+                </Text>
+              )}
             </div>
           </div>
         </Header>
@@ -376,7 +422,7 @@ export function CrmLayout({ children }: CrmLayoutProps) {
         {/* Content Area */}
         <Content
           style={{
-            padding: '20px 24px',
+            padding: screens.md ? '20px 24px' : '14px 12px',
             minHeight: 'calc(100vh - 64px)',
             maxWidth: 1440,
             width: '100%',
