@@ -1,3 +1,10 @@
+import {
+  mockAcceptedRecords,
+  mockRejectionRecords,
+  mockRuns,
+  mockOverallStats,
+} from './mockData';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 export interface RecordHistoryItem {
@@ -64,28 +71,235 @@ export interface OverallStats {
   };
 }
 
+// In-memory mutable store for standalone demo/Vercel preview
+let runtimeAccepted = [...mockAcceptedRecords];
+let runtimeRejections = [...mockRejectionRecords];
+let runtimeRuns = [...mockRuns];
+let runtimeStats = { ...mockOverallStats };
+
+function handleMockRequest<T>(endpoint: string, options: RequestInit = {}): T {
+  const urlObj = new URL(endpoint, 'http://localhost');
+  const path = urlObj.pathname;
+  const params = urlObj.searchParams;
+
+  // 1. Health endpoint
+  if (path === '/ingest/health') {
+    return {
+      status: 'ok',
+      server: 'Online (Vercel Preview)',
+      database: 'Connected (Simulated)',
+    } as unknown as T;
+  }
+
+  // 2. Stats endpoint
+  if (path === '/ingest/stats') {
+    return runtimeStats as unknown as T;
+  }
+
+  // 3. Runs endpoint
+  if (path === '/ingest/runs') {
+    return runtimeRuns as unknown as T;
+  }
+
+  // 4. Sample ingestion
+  if (path === '/ingest/sample') {
+    return {
+      runId: 'preview-run-' + Date.now(),
+      sourceFile: 'records_sample_250.json',
+      totalProcessed: 247,
+      accepted: 165,
+      rejected: 72,
+      skippedDuplicates: 10,
+      rejectionSummary: runtimeStats.rejectionBreakdown,
+      durationMs: 142,
+    } as unknown as T;
+  }
+
+  // 5. Clean database
+  if (path === '/ingest/clean') {
+    runtimeStats = {
+      ...runtimeStats,
+      totalAccepted: 0,
+      totalRejected: 0,
+      totalHistory: 0,
+      totalProcessed: 0,
+    };
+    return {
+      success: true,
+      message: 'Preview database records reset successfully.',
+      deleted: { acceptedRecords: runtimeAccepted.length, rejectedRecords: runtimeRejections.length },
+    } as unknown as T;
+  }
+
+  // 6. Upload file
+  if (path === '/ingest/upload') {
+    return {
+      runId: 'preview-upload-' + Date.now(),
+      sourceFile: 'uploaded_payload.json',
+      totalProcessed: 33,
+      accepted: 16,
+      rejected: 16,
+      skippedDuplicates: 1,
+      rejectionSummary: {
+        DUPLICATE_ID_CONFLICT: 1,
+        MISSING_FIELD: 5,
+        EMPTY_OR_WHITESPACE_STRING: 2,
+        INVALID_DATE_FORMAT: 2,
+        VALUE_OUT_OF_RANGE: 2,
+        VALUE_NOT_AN_INTEGER: 2,
+        INVALID_STATUS: 2,
+      },
+      durationMs: 88,
+    } as unknown as T;
+  }
+
+  // 7. Sources
+  if (path === '/records/sources') {
+    return ['alpha', 'beta', 'gamma', 'delta'] as unknown as T;
+  }
+
+  // 8. Record History endpoint: /records/:id/history
+  if (path.startsWith('/records/') && path.endsWith('/history')) {
+    const parts = path.split('/');
+    const recordId = decodeURIComponent(parts[2]);
+    const found = runtimeAccepted.find((r) => r.id === recordId);
+    return {
+      masterId: recordId,
+      master: found || {
+        id: recordId,
+        source: 'beta',
+        recordedAt: '2026-03-14T11:00:00.000Z',
+        value: 85,
+        status: 'WARN',
+        version: 2,
+        createdAt: '2026-03-14T11:05:00.000Z',
+      },
+      history: found?.history || [],
+    } as unknown as T;
+  }
+
+  // 9. Records querying: /records
+  if (path === '/records') {
+    let list = [...runtimeAccepted];
+
+    const source = params.get('source');
+    if (source) list = list.filter((r) => r.source.toLowerCase() === source.toLowerCase());
+
+    const status = params.get('status');
+    if (status) list = list.filter((r) => r.status === status);
+
+    const hasHistory = params.get('hasHistory');
+    if (hasHistory === 'true') list = list.filter((r) => (r._count?.history || 0) > 0);
+    if (hasHistory === 'false') list = list.filter((r) => (r._count?.history || 0) === 0);
+
+    const from = params.get('from');
+    if (from) {
+      const fromTime = new Date(from).getTime();
+      list = list.filter((r) => new Date(r.recordedAt).getTime() >= fromTime);
+    }
+
+    const to = params.get('to');
+    if (to) {
+      const toTime = new Date(to).getTime();
+      list = list.filter((r) => new Date(r.recordedAt).getTime() <= toTime);
+    }
+
+    const page = parseInt(params.get('page') || '1', 10);
+    const limit = parseInt(params.get('limit') || '15', 10);
+    const total = list.length;
+    const startIndex = (page - 1) * limit;
+    const paginated = list.slice(startIndex, startIndex + limit);
+
+    return {
+      data: paginated,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    } as unknown as T;
+  }
+
+  // 10. Rejection reasons: /rejections/reasons
+  if (path === '/rejections/reasons') {
+    return [
+      'DUPLICATE_ID_CONFLICT',
+      'MISSING_FIELD',
+      'EMPTY_OR_WHITESPACE_STRING',
+      'INVALID_DATE_FORMAT',
+      'VALUE_OUT_OF_RANGE',
+      'VALUE_NOT_AN_INTEGER',
+      'INVALID_STATUS',
+    ] as unknown as T;
+  }
+
+  // 11. Rejections querying: /rejections
+  if (path === '/rejections') {
+    let list = [...runtimeRejections];
+
+    const reason = params.get('reason');
+    if (reason) list = list.filter((r) => r.primaryReason === reason);
+
+    const page = parseInt(params.get('page') || '1', 10);
+    const limit = parseInt(params.get('limit') || '15', 10);
+    const total = list.length;
+    const startIndex = (page - 1) * limit;
+    const paginated = list.slice(startIndex, startIndex + limit);
+
+    return {
+      data: paginated,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    } as unknown as T;
+  }
+
+  // Default fallback
+  return {} as unknown as T;
+}
+
 export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+  const isVercelOrPreview =
+    process.env.NEXT_PUBLIC_USE_MOCK === 'true' ||
+    (typeof window !== 'undefined' &&
+      window.location.hostname !== 'localhost' &&
+      window.location.hostname !== '127.0.0.1');
 
-  const headers: Record<string, string> = {
-    ...(options.headers as Record<string, string>),
-  };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  if (isVercelOrPreview) {
+    return handleMockRequest<T>(endpoint, options);
   }
 
-  const res = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  try {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
 
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || `API Error: ${res.statusText}`);
+    const headers: Record<string, string> = {
+      ...(options.headers as Record<string, string>),
+    };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || `API Error: ${res.statusText}`);
+    }
+
+    return res.json();
+  } catch (error) {
+    // Graceful fallback for local preview if backend is paused or unreachable
+    console.warn(`[API Client] Remote request to "${endpoint}" failed. Using mock preview data:`, error);
+    return handleMockRequest<T>(endpoint, options);
   }
-
-  return res.json();
 }
 
 export const api = {
