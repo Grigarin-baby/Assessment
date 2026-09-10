@@ -216,30 +216,29 @@ export function CrmLayout({ children }: CrmLayoutProps) {
   );
 
   return (
-    <Layout style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
+    <Layout hasSider style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
       {/* Desktop Left Sidebar (>= 768px) */}
-      <div className="desktop-sider-wrapper">
-        <Sider
-          trigger={null}
-          collapsible
-          collapsed={collapsed}
-          width={250}
-          collapsedWidth={76}
-          style={{
-            background: 'var(--sidebar-bg)',
-            borderRight: `1px solid var(--border-color)`,
-            position: 'sticky',
-            top: 0,
-            height: '100vh',
-            zIndex: 100,
-            display: 'flex',
-            flexDirection: 'column',
-            transition: 'all 0.25s ease',
-          }}
-        >
-          {renderSidebarContent(false)}
-        </Sider>
-      </div>
+      <Sider
+        className="desktop-sider"
+        trigger={null}
+        collapsible
+        collapsed={collapsed}
+        width={250}
+        collapsedWidth={76}
+        style={{
+          background: 'var(--sidebar-bg)',
+          borderRight: `1px solid var(--border-color)`,
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          zIndex: 100,
+          display: 'flex',
+          flexDirection: 'column',
+          transition: 'all 0.25s ease',
+        }}
+      >
+        {renderSidebarContent(false)}
+      </Sider>
 
       {/* Mobile Slide-Out Drawer (< 768px) */}
       <Drawer

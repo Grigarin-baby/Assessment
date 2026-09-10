@@ -252,14 +252,16 @@ body {
 
 /* Responsive Sider & Drawer Support */
 @media (max-width: 768px) {
-  .desktop-sider-wrapper {
+  .desktop-sider {
     display: none !important;
   }
 }
 @media (min-width: 769px) {
-  .desktop-sider-wrapper {
-    display: flex !important;
+  .desktop-sider {
+    position: sticky !important;
+    top: 0 !important;
     height: 100vh !important;
+    z-index: 100 !important;
   }
 }
 
