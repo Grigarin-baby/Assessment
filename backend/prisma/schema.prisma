@@ -1,0 +1,72 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("ADMIN")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model IngestRun {
+  id               String            @id @default(uuid())
+  sourceFile       String
+  fileHash         String
+  startedAt        DateTime          @default(now())
+  completedAt      DateTime?
+  totalRecords     Int               @default(0)
+  acceptedCount    Int               @default(0)
+  rejectedCount    Int               @default(0)
+  rejectionSummary String?           // Serialized JSON of reason counts: { "MISSING_FIELD": 5 }
+  
+  acceptedRecords  AcceptedRecord[]
+  rejectedRecords  RejectedRecord[]
+
+  @@map("ingest_runs")
+}
+
+model AcceptedRecord {
+  id          String    @id // The record's unique ID (UUID or unique string)
+  source      String
+  recordedAt  DateTime
+  value       Int
+  status      String    // "OK", "WARN", "FAIL"
+  payloadHash String    // SHA-256 fingerprint for idempotency check
+  version     Int       @default(1)
+  ingestRunId String
+  ingestRun   IngestRun @relation(fields: [ingestRunId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([source])
+  @@index([status])
+  @@index([recordedAt])
+  @@index([payloadHash])
+  @@map("accepted_records")
+}
+
+model RejectedRecord {
+  id            String    @id @default(uuid())
+  originalId    String?
+  rawPayload    String    // Complete serialized raw JSON for 100% recoverability
+  primaryReason String    // Primary categorized error reason for R5 grouping
+  allReasons    String    // Serialized JSON array of all validation failures
+  ingestRunId   String
+  ingestRun     IngestRun @relation(fields: [ingestRunId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+
+  @@index([primaryReason])
+  @@index([ingestRunId])
+  @@map("rejected_records")
+}
