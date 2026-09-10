@@ -140,8 +140,9 @@ export function CrmLayout({ children }: CrmLayoutProps) {
               width: 38,
               height: 38,
               borderRadius: 0,
-              background: isDark ? '#27272e' : '#18181b',
-              border: '1px solid var(--border-color)',
+              background: 'linear-gradient(135deg, #0284c7 0%, #06b6d4 100%)',
+              border: 'none',
+              boxShadow: '0 2px 8px rgba(6, 182, 212, 0.25)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -195,15 +196,22 @@ export function CrmLayout({ children }: CrmLayoutProps) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Avatar
               shape="square"
-              style={{ backgroundColor: '#383842', flexShrink: 0, borderRadius: 0 }}
-              icon={<UserOutlined />}
+              style={{
+                background: 'linear-gradient(135deg, #0284c7 0%, #06b6d4 100%)',
+                color: '#ffffff',
+                flexShrink: 0,
+                borderRadius: 0,
+                border: 'none',
+                boxShadow: '0 2px 6px rgba(6, 182, 212, 0.3)',
+              }}
+              icon={<UserOutlined style={{ color: '#ffffff' }} />}
             />
             {!collapsed && (
               <div style={{ flex: 1, minWidth: 0 }}>
                 <Text strong style={{ display: 'block', fontSize: 13, color: 'var(--text-primary)' }} ellipsis>
                   System Admin
                 </Text>
-                <Text type="secondary" style={{ fontSize: 11, display: 'block' }} ellipsis>
+                <Text style={{ fontSize: 11, display: 'block', color: '#06b6d4', fontWeight: 600 }} ellipsis>
                   Active Operator
                 </Text>
               </div>
@@ -341,11 +349,23 @@ export function CrmLayout({ children }: CrmLayoutProps) {
                 padding: '0 12px',
                 borderRadius: 0,
                 background: 'var(--bg-secondary)',
-                border: '1px solid var(--border-color)',
+                border: isDark ? '1px solid rgba(6, 182, 212, 0.35)' : '1px solid #cbd5e1',
                 boxSizing: 'border-box',
               }}
             >
-              <Avatar shape="square" size={20} style={{ backgroundColor: '#383842', borderRadius: 0 }} icon={<UserOutlined style={{ fontSize: 12 }} />} />
+              <Avatar
+                shape="square"
+                size={20}
+                style={{
+                  background: 'linear-gradient(135deg, #0284c7 0%, #06b6d4 100%)',
+                  color: '#ffffff',
+                  borderRadius: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                icon={<UserOutlined style={{ fontSize: 11, color: '#ffffff' }} />}
+              />
               <Text strong style={{ fontSize: 12, color: 'var(--text-primary)', lineHeight: 1 }}>
                 System Admin
               </Text>

@@ -132,19 +132,31 @@ body {
   height: 100% !important;
 }
 
-/* Sidebar Menu Selection - Formal Neutral Highlight (No Purple) */
-.ant-menu-dark .ant-menu-item-selected {
-  background-color: #33333c !important;
+/* Sidebar Menu Selection - Matches EXECUTE Button Vibrant Cyan Gradient */
+.ant-menu-item-selected,
+.ant-menu-dark .ant-menu-item-selected,
+.ant-menu-light .ant-menu-item-selected {
+  background: linear-gradient(90deg, #0284c7 0%, #06b6d4 100%) !important;
   color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(6, 182, 212, 0.25) !important;
 }
 
+.ant-menu-item-selected .anticon,
+.ant-menu-item-selected a,
+.ant-menu-item-selected .ant-menu-title-content,
 .ant-menu-dark .ant-menu-item-selected a,
-.ant-menu-dark .ant-menu-item-selected .ant-menu-title-content {
+.ant-menu-dark .ant-menu-item-selected .anticon,
+.ant-menu-dark .ant-menu-item-selected .ant-menu-title-content,
+.ant-menu-light .ant-menu-item-selected a,
+.ant-menu-light .ant-menu-item-selected .anticon,
+.ant-menu-light .ant-menu-item-selected .ant-menu-title-content {
   color: #ffffff !important;
 }
 
-.ant-menu-dark .ant-menu-item:hover {
-  background-color: #2a2a32 !important;
+.ant-menu-dark .ant-menu-item:hover,
+.ant-menu-light .ant-menu-item:hover {
+  background-color: rgba(6, 182, 212, 0.12) !important;
 }
 
 /* Universal Button Consistency Across Entire App */
