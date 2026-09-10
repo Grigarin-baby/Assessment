@@ -2,50 +2,99 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  Filter, 
-  RefreshCw, 
-  Calendar, 
-  ChevronLeft, 
-  ChevronRight,
-  Database,
-  Search
-} from 'lucide-react';
-import { api, RecordItem } from '@/lib/api';
+  Select, 
+  DatePicker, 
+  Tag, 
+  Typography, 
+  Space, 
+  Button, 
+  Spin, 
+  Card,
+  Tooltip,
+  Table,
+  Alert
+} from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import { 
+  DatabaseOutlined, 
+  HistoryOutlined, 
+  ClockCircleOutlined,
+  BranchesOutlined,
+  CheckCircleOutlined,
+  ExclamationCircleOutlined,
+  CloseCircleOutlined,
+  CopyOutlined,
+  DownOutlined,
+  UpOutlined
+} from '@ant-design/icons';
+import { api, RecordItem, RecordHistoryItem } from '@/lib/api';
+import { CrmDataTable } from '@/components/CrmDataTable';
+import { useTheme } from '@/theme/ThemeContext';
+
+const { Text } = Typography;
+const { RangePicker } = DatePicker;
 
 export default function RecordsExplorerPage() {
+  const { isDark } = useTheme();
   const [records, setRecords] = useState<RecordItem[]>([]);
   const [sources, setSources] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 15, totalPages: 1 });
 
-  // Filter states
-  const [selectedSource, setSelectedSource] = useState<string>('');
-  const [selectedStatus, setSelectedStatus] = useState<string>('');
-  const [fromDate, setFromDate] = useState<string>('');
-  const [toDate, setToDate] = useState<string>('');
+  // Filters
+  const [selectedSource, setSelectedSource] = useState<string | undefined>(undefined);
+  const [selectedStatus, setSelectedStatus] = useState<string | undefined>(undefined);
+  const [dateRange, setDateRange] = useState<[any, any] | null>(null);
+  const [searchId, setSearchId] = useState<string>('');
+  const [versionFilter, setVersionFilter] = useState<'all' | 'multi' | 'single'>('all');
+
+  // Expanded row keys for parent dropdowns
+  const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
+
+  // History cache for expanded rows
+  const [historyCache, setHistoryCache] = useState<Record<string, RecordHistoryItem[]>>({});
+  const [loadingHistory, setLoadingHistory] = useState<Record<string, boolean>>({});
 
   const loadSources = async () => {
     try {
-      const srcList = await api.getSources();
-      setSources(srcList);
+      const list = await api.getSources();
+      setSources(list);
     } catch {}
   };
 
-  const fetchRecords = async (page: number = 1) => {
+  const fetchRecords = async (page: number = 1, pageSize: number = pagination.limit) => {
     setLoading(true);
     try {
+      const from = dateRange?.[0] ? dateRange[0].toISOString() : undefined;
+      const to = dateRange?.[1] ? dateRange[1].toISOString() : undefined;
+      const hasHistoryParam = versionFilter === 'multi' ? 'true' : versionFilter === 'single' ? 'false' : undefined;
+
       const res = await api.getRecords({
-        source: selectedSource || undefined,
-        status: selectedStatus || undefined,
-        from: fromDate ? new Date(fromDate).toISOString() : undefined,
-        to: toDate ? new Date(toDate).toISOString() : undefined,
+        source: selectedSource,
+        status: selectedStatus,
+        from,
+        to,
+        hasHistory: hasHistoryParam,
         page,
-        limit: pagination.limit,
+        limit: pageSize,
       });
-      setRecords(res.data);
-      setPagination(res.pagination);
+
+      // Filter locally by searchId if specified
+      let items = res.data;
+      if (searchId.trim()) {
+        const q = searchId.trim().toLowerCase();
+        items = items.filter(r => r.id.toLowerCase().includes(q));
+      }
+
+      setRecords(items);
+      setPagination({
+        total: res.pagination.total,
+        page: res.pagination.page,
+        limit: res.pagination.limit,
+        totalPages: res.pagination.totalPages,
+      });
     } catch (err) {
-      console.error(err);
+      console.error('Failed to fetch records:', err);
     } finally {
       setLoading(false);
     }
@@ -56,211 +105,426 @@ export default function RecordsExplorerPage() {
   }, []);
 
   useEffect(() => {
-    fetchRecords(1);
-  }, [selectedSource, selectedStatus, fromDate, toDate]);
+    fetchRecords(1, pagination.limit);
+  }, [selectedSource, selectedStatus, dateRange, searchId, versionFilter]);
 
-  const clearFilters = () => {
-    setSelectedSource('');
-    setSelectedStatus('');
-    setFromDate('');
-    setToDate('');
+  const resetFilters = () => {
+    setSelectedSource(undefined);
+    setSelectedStatus(undefined);
+    setDateRange(null);
+    setSearchId('');
+    setVersionFilter('all');
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'OK':
-        return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-      case 'WARN':
-        return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-      case 'FAIL':
-        return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
-      default:
-        return 'bg-slate-500/10 text-slate-400 border-slate-500/20';
+  const fetchHistoryForRecord = async (recordId: string) => {
+    if (historyCache[recordId] || loadingHistory[recordId]) return;
+    setLoadingHistory(prev => ({ ...prev, [recordId]: true }));
+    try {
+      const res = await api.getRecordHistory(recordId);
+      setHistoryCache(prev => ({ ...prev, [recordId]: res.history || [] }));
+    } catch (err) {
+      console.error('Failed to fetch history:', err);
+    } finally {
+      setLoadingHistory(prev => ({ ...prev, [recordId]: false }));
     }
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl flex items-center gap-2.5">
-            <Database className="w-7 h-7 text-indigo-400" />
-            Accepted Records Explorer (R4)
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Query, filter, and inspect normalized records stored in PostgreSQL.
-          </p>
-        </div>
-        <button
-          onClick={() => fetchRecords(pagination.page)}
-          disabled={loading}
-          className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
+  const toggleExpandRow = (id: string) => {
+    if (expandedRowKeys.includes(id)) {
+      setExpandedRowKeys(prev => prev.filter(k => k !== id));
+    } else {
+      setExpandedRowKeys(prev => [...prev, id]);
+      fetchHistoryForRecord(id);
+    }
+  };
+
+  const getStatusTag = (status: string) => {
+    switch (status) {
+      case 'OK':
+        return <Tag icon={<CheckCircleOutlined />} color="success" style={{ borderRadius: 0 }}>OK</Tag>;
+      case 'WARN':
+        return <Tag icon={<ExclamationCircleOutlined />} color="warning" style={{ borderRadius: 0 }}>WARN</Tag>;
+      case 'FAIL':
+        return <Tag icon={<CloseCircleOutlined />} color="error" style={{ borderRadius: 0 }}>FAIL</Tag>;
+      default:
+        return <Tag color="default" style={{ borderRadius: 0 }}>{status}</Tag>;
+    }
+  };
+
+  // Columns for the Accepted Child Revisions sub-table inside the parent dropdown
+  const childColumns: ColumnsType<RecordHistoryItem> = [
+    {
+      title: 'Child Revision',
+      dataIndex: 'version',
+      key: 'version',
+      width: 140,
+      render: (v: number) => (
+        <Tag color="blue" icon={<BranchesOutlined />} style={{ fontWeight: 600, borderRadius: 0 }}>
+          v{v} (Child Revision)
+        </Tag>
+      ),
+    },
+    {
+      title: 'Historical Recorded At (UTC)',
+      dataIndex: 'recordedAt',
+      key: 'recordedAt',
+      render: (dt: string) => (
+        <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text-secondary)' }}>
+          <ClockCircleOutlined style={{ marginRight: 6, color: '#3b82f6' }} />
+          {new Date(dt).toISOString()}
+        </span>
+      ),
+    },
+    {
+      title: 'Source System',
+      dataIndex: 'source',
+      key: 'source',
+      render: (src: string) => (
+        <Tag color="geekblue" style={{ fontSize: 11, fontWeight: 600, borderRadius: 0 }}>
+          {src.toUpperCase()}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Metric Value',
+      dataIndex: 'value',
+      key: 'value',
+      align: 'center',
+      render: (val: number) => (
+        <span
+          style={{
+            fontWeight: 700,
+            fontSize: 12,
+            padding: '2px 8px',
+            borderRadius: 0,
+            background: val > 80 ? 'rgba(239, 68, 68, 0.1)' : val > 50 ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+            color: val > 80 ? '#ef4444' : val > 50 ? '#f59e0b' : '#10b981',
+            border: `1px solid ${val > 80 ? 'rgba(239, 68, 68, 0.25)' : val > 50 ? 'rgba(245, 158, 11, 0.25)' : 'rgba(16, 185, 129, 0.25)'}`,
+          }}
         >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
-      </div>
+          {val}
+        </span>
+      ),
+    },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      align: 'center',
+      render: (status: string) => getStatusTag(status),
+    },
+    {
+      title: 'Superseded / Replaced At',
+      dataIndex: 'replacedAt',
+      key: 'replacedAt',
+      render: (dt: string) => (
+        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+          {new Date(dt).toLocaleString()}
+        </span>
+      ),
+    },
+    {
+      title: 'Payload Hash (SHA-256)',
+      dataIndex: 'payloadHash',
+      key: 'payloadHash',
+      ellipsis: true,
+      render: (hash: string) => (
+        <Tooltip title={hash}>
+          <Text code style={{ fontSize: 11 }}>{hash ? hash.slice(0, 16) + '...' : 'N/A'}</Text>
+        </Tooltip>
+      ),
+    },
+  ];
 
-      {/* Filter Control Bar (Requirement R4) */}
-      <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <Filter className="w-3.5 h-3.5 text-indigo-400" />
-            R4 Query Filters
-          </span>
-          {(selectedSource || selectedStatus || fromDate || toDate) && (
-            <button
-              onClick={clearFilters}
-              className="text-xs text-indigo-400 hover:text-indigo-300 font-medium"
+  const columns: ColumnsType<RecordItem> = [
+    {
+      title: 'Record ID (UUID / String)',
+      dataIndex: 'id',
+      key: 'id',
+      render: (id: string) => (
+        <Space orientation="horizontal" size={6}>
+          <Text code style={{ fontSize: 12, fontWeight: 600 }}>{id}</Text>
+          <Tooltip title="Copy ID">
+            <Button
+              type="text"
+              size="small"
+              icon={<CopyOutlined style={{ fontSize: 11, color: 'var(--text-muted)' }} />}
+              onClick={() => navigator.clipboard.writeText(id)}
+              style={{ width: 24, height: 24, padding: 0 }}
+            />
+          </Tooltip>
+        </Space>
+      ),
+    },
+    {
+      title: 'Source System',
+      dataIndex: 'source',
+      key: 'source',
+      render: (src: string) => (
+        <Tag color="geekblue" style={{ fontWeight: 600, textTransform: 'uppercase', fontSize: 11, borderRadius: 0 }}>
+          {src}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Recorded At (UTC)',
+      dataIndex: 'recordedAt',
+      key: 'recordedAt',
+      render: (dt: string) => (
+        <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text-secondary)' }}>
+          <ClockCircleOutlined style={{ marginRight: 6, color: '#3b82f6' }} />
+          {new Date(dt).toISOString()}
+        </span>
+      ),
+    },
+    {
+      title: 'Value (0–100)',
+      dataIndex: 'value',
+      key: 'value',
+      align: 'center',
+      render: (val: number) => (
+        <span
+          style={{
+            fontWeight: 700,
+            fontSize: 13,
+            padding: '2px 8px',
+            borderRadius: 0,
+            background: val > 80 ? 'rgba(239, 68, 68, 0.1)' : val > 50 ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+            color: val > 80 ? '#ef4444' : val > 50 ? '#f59e0b' : '#10b981',
+            border: `1px solid ${val > 80 ? 'rgba(239, 68, 68, 0.25)' : val > 50 ? 'rgba(245, 158, 11, 0.25)' : 'rgba(16, 185, 129, 0.25)'}`,
+          }}
+        >
+          {val}
+        </span>
+      ),
+    },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      align: 'center',
+      render: (status: string) => getStatusTag(status),
+    },
+    {
+      title: 'Parent / Child Revisions',
+      key: 'revisions',
+      align: 'center',
+      render: (_, rec) => {
+        const count = rec._count?.history || 0;
+        const isExpanded = expandedRowKeys.includes(rec.id);
+        if (count > 0) {
+          return (
+            <Tag 
+              color={isExpanded ? 'geekblue' : 'blue'} 
+              icon={<BranchesOutlined />}
+              style={{ fontWeight: 600, cursor: 'pointer', padding: '3px 10px', borderRadius: 0, fontSize: 12 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleExpandRow(rec.id);
+              }}
             >
-              Reset Filters
-            </button>
-          )}
-        </div>
+              v{rec.version} ({count} accepted {count === 1 ? 'child' : 'children'}) {isExpanded ? <UpOutlined style={{ fontSize: 10, marginLeft: 4 }} /> : <DownOutlined style={{ fontSize: 10, marginLeft: 4 }} />}
+            </Tag>
+          );
+        }
+        return (
+          <Tag color="default" style={{ fontSize: 11, borderRadius: 0 }}>
+            v{rec.version} (Single Version)
+          </Tag>
+        );
+      },
+    },
+  ];
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Source Filter */}
+  // Expandable row rendering all child records that were accepted under this parent
+  const renderRevisionHistory = (rec: RecordItem) => {
+    const historyList = historyCache[rec.id] || [];
+    const isLoading = loadingHistory[rec.id];
+
+    return (
+      <Card
+        size="small"
+        bordered
+        style={{
+          margin: '8px 0',
+          background: 'var(--bg-secondary)',
+          borderColor: 'var(--border-color)',
+          borderRadius: 0,
+        }}
+      >
+        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <Space>
+              <BranchesOutlined style={{ color: '#3b82f6', fontSize: 16 }} />
+              <Text strong style={{ fontSize: 13, color: 'var(--text-primary)' }}>
+                Parent & Child Revisions Breakdown (ID: {rec.id})
+              </Text>
+              <Tag color="blue" style={{ fontSize: 11, borderRadius: 0 }}>
+                Total {1 + historyList.length} Revisions (1 Active Master + {historyList.length} Child)
+              </Tag>
+            </Space>
+            <Text type="secondary" style={{ fontSize: 11, fontFamily: 'monospace' }}>
+              Foreign Key: <code style={{ color: '#60a5fa' }}>record_history.acceptedRecordId REFERENCES accepted_records(id)</code>
+            </Text>
+          </div>
+
+          {/* Active Master Card */}
+          <div
+            style={{
+              padding: '12px 16px',
+              borderRadius: 0,
+              background: isDark ? 'rgba(16, 185, 129, 0.08)' : '#ecfdf5',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Tag color="success" style={{ fontWeight: 700, borderRadius: 0 }}>
+                ● ACTIVE MASTER (PARENT) — v{rec.version}
+              </Tag>
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                Stored in <code>accepted_records</code> (Latest Event Timestamp)
+              </Text>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, fontSize: 12 }}>
+              <div>
+                <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>Event Timestamp:</Text>
+                <Text strong style={{ fontFamily: 'monospace' }}>{new Date(rec.recordedAt).toISOString()}</Text>
+              </div>
+              <div>
+                <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>Source System:</Text>
+                <Tag color="geekblue" style={{ borderRadius: 0 }}>{rec.source.toUpperCase()}</Tag>
+              </div>
+              <div>
+                <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>Metric Value:</Text>
+                <Text strong>{rec.value}</Text>
+              </div>
+              <div>
+                <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>Status:</Text>
+                {getStatusTag(rec.status)}
+              </div>
+            </div>
+          </div>
+
+          {/* Historical Child Revisions Table */}
           <div>
-            <label className="block text-[11px] font-medium text-slate-400 mb-1">Source System</label>
-            <select
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>
+                <ClockCircleOutlined style={{ marginRight: 6, color: '#3b82f6' }} />
+                Accepted Child Revisions Stored in <code>record_history</code> ({historyList.length} total)
+              </span>
+              <Tag color="cyan" style={{ fontSize: 11, borderRadius: 0 }}>
+                Relational Integrity Maintained
+              </Tag>
+            </div>
+
+            {isLoading ? (
+              <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                <Spin tip="Loading child records from PostgreSQL..." />
+              </div>
+            ) : historyList.length > 0 ? (
+              <Table<RecordHistoryItem>
+                columns={childColumns}
+                dataSource={historyList}
+                rowKey="id"
+                pagination={false}
+                size="small"
+                bordered
+                style={{ background: 'var(--bg-card)', borderRadius: 0 }}
+              />
+            ) : (
+              <Alert
+                type="info"
+                showIcon
+                message="No prior child versions found for this record."
+                style={{ borderRadius: 0 }}
+              />
+            )}
+          </div>
+        </Space>
+      </Card>
+    );
+  };
+
+  const hasFilters = Boolean(selectedSource || selectedStatus || dateRange || searchId || versionFilter !== 'all');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <CrmDataTable<RecordItem>
+        title="Accepted Records Explorer (Requirement R4)"
+        subtitle="Explore, query, and trace normalized event records stored in PostgreSQL"
+        icon={<DatabaseOutlined />}
+        columns={columns}
+        dataSource={records}
+        rowKey="id"
+        loading={loading}
+        pagination={pagination}
+        onPageChange={(page, pageSize) => fetchRecords(page, pageSize)}
+        onRefresh={() => fetchRecords(pagination.page, pagination.limit)}
+        searchValue={searchId}
+        onSearchChange={setSearchId}
+        searchPlaceholder="Filter by Document ID..."
+        hasActiveFilters={hasFilters}
+        onResetFilters={resetFilters}
+        filterControls={
+          <Space wrap size="small">
+            {/* Version / Revision Filter */}
+            <Select
+              placeholder="All Versions"
+              value={versionFilter}
+              onChange={setVersionFilter}
+              style={{ width: 175 }}
+              options={[
+                { label: 'All Records', value: 'all' },
+                { label: 'Has Child Revisions', value: 'multi' },
+                { label: 'Master Only (Single)', value: 'single' },
+              ]}
+            />
+
+            {/* Source Filter */}
+            <Select
+              placeholder="All Sources"
+              allowClear
               value={selectedSource}
-              onChange={(e) => setSelectedSource(e.target.value)}
-              className="w-full text-xs rounded-lg bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            >
-              <option value="">All Sources</option>
-              {sources.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
+              onChange={setSelectedSource}
+              style={{ width: 140 }}
+              options={sources.map(s => ({ label: s.toUpperCase(), value: s }))}
+            />
 
-          {/* Status Filter */}
-          <div>
-            <label className="block text-[11px] font-medium text-slate-400 mb-1">Status</label>
-            <select
+            {/* Status Filter */}
+            <Select
+              placeholder="All Statuses"
+              allowClear
               value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full text-xs rounded-lg bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            >
-              <option value="">All Statuses (OK, WARN, FAIL)</option>
-              <option value="OK">OK</option>
-              <option value="WARN">WARN</option>
-              <option value="FAIL">FAIL</option>
-            </select>
-          </div>
-
-          {/* From Date */}
-          <div>
-            <label className="block text-[11px] font-medium text-slate-400 mb-1">From Date</label>
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              className="w-full text-xs rounded-lg bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              onChange={setSelectedStatus}
+              style={{ width: 130 }}
+              options={[
+                { label: 'OK', value: 'OK' },
+                { label: 'WARN', value: 'WARN' },
+                { label: 'FAIL', value: 'FAIL' },
+              ]}
             />
-          </div>
 
-          {/* To Date */}
-          <div>
-            <label className="block text-[11px] font-medium text-slate-400 mb-1">To Date</label>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              className="w-full text-xs rounded-lg bg-slate-800 border border-slate-700 text-slate-200 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            {/* Date Range Filter */}
+            <RangePicker
+              value={dateRange}
+              onChange={(dates) => setDateRange(dates as any)}
+              style={{ width: 240 }}
             />
-          </div>
-        </div>
-      </div>
-
-      {/* Results Table */}
-      <div className="rounded-xl bg-slate-900 border border-slate-800 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-slate-800/80 uppercase text-[10px] text-slate-400 border-b border-slate-800">
-              <tr>
-                <th className="py-3 px-4">Record ID (UUID / String)</th>
-                <th className="py-3 px-4">Source</th>
-                <th className="py-3 px-4">Recorded At (UTC)</th>
-                <th className="py-3 px-4 text-center">Value (0-100)</th>
-                <th className="py-3 px-4 text-center">Status</th>
-                <th className="py-3 px-4 text-center">Version</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
-                    <RefreshCw className="w-6 h-6 animate-spin mx-auto text-indigo-400 mb-2" />
-                    Loading records from database...
-                  </td>
-                </tr>
-              ) : records.length > 0 ? (
-                records.map((rec) => (
-                  <tr key={rec.id} className="hover:bg-slate-800/40 transition">
-                    <td className="py-3 px-4 font-mono font-medium text-slate-200">
-                      {rec.id}
-                    </td>
-                    <td className="py-3 px-4 font-semibold text-indigo-300">
-                      {rec.source}
-                    </td>
-                    <td className="py-3 px-4 font-mono text-slate-400">
-                      {new Date(rec.recordedAt).toISOString()}
-                    </td>
-                    <td className="py-3 px-4 text-center font-bold text-white">
-                      {rec.value}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getStatusBadge(rec.status)}`}>
-                        {rec.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-center font-mono text-slate-500">
-                      v{rec.version}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500">
-                    No records match the selected query filters.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination Bar */}
-        <div className="py-3 px-4 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-          <div>
-            Showing <span className="text-white font-medium">{records.length}</span> of{' '}
-            <span className="text-white font-medium">{pagination.total}</span> matching records
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => fetchRecords(pagination.page - 1)}
-              disabled={pagination.page <= 1 || loading}
-              className="p-1.5 rounded-md bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:pointer-events-none text-slate-200"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="text-xs">
-              Page {pagination.page} of {pagination.totalPages || 1}
-            </span>
-            <button
-              onClick={() => fetchRecords(pagination.page + 1)}
-              disabled={pagination.page >= pagination.totalPages || loading}
-              className="p-1.5 rounded-md bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:pointer-events-none text-slate-200"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </div>
+          </Space>
+        }
+        expandable={{
+          expandedRowRender: renderRevisionHistory,
+          expandedRowKeys: expandedRowKeys,
+          onExpandedRowsChange: (keys) => setExpandedRowKeys(keys as string[]),
+          onExpand: (expanded, record) => {
+            if (expanded) {
+              fetchHistoryForRecord(record.id);
+            }
+          },
+          rowExpandable: (rec) => (rec._count?.history ?? 0) > 0,
+        }}
+      />
     </div>
   );
 }
