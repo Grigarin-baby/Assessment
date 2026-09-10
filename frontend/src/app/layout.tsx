@@ -1,9 +1,11 @@
 import './globals.css';
-import { Navigation } from '@/components/Navigation';
+import { AntdRegistry } from '@ant-design/nextjs-registry';
+import { ThemeContextProvider } from '@/theme/ThemeContext';
+import { CrmLayout } from '@/components/CrmLayout';
 
 export const metadata = {
-  title: 'Record Ingestion & Reporting System',
-  description: 'Clean data ingestion pipeline with dead-letter forensics and live query exploration.',
+  title: 'Record Ingestion CRM & Reporting System',
+  description: 'Enterprise CRM Record Ingestion pipeline with Parent/Child history and forensic dead-letter vault.',
 };
 
 export default function RootLayout({
@@ -13,11 +15,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className="bg-slate-950 text-slate-100 min-h-screen">
-        <Navigation />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {children}
-        </main>
+      <body>
+        <AntdRegistry>
+          <ThemeContextProvider>
+            <CrmLayout>
+              {children}
+            </CrmLayout>
+          </ThemeContextProvider>
+        </AntdRegistry>
       </body>
     </html>
   );

@@ -1,5 +1,18 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
+export interface RecordHistoryItem {
+  id: string;
+  acceptedRecordId: string;
+  source: string;
+  recordedAt: string;
+  value: number;
+  status: 'OK' | 'WARN' | 'FAIL';
+  version: number;
+  payloadHash: string;
+  ingestRunId?: string | null;
+  replacedAt: string;
+}
+
 export interface RecordItem {
   id: string;
   source: string;
@@ -8,6 +21,9 @@ export interface RecordItem {
   status: 'OK' | 'WARN' | 'FAIL';
   version: number;
   createdAt: string;
+  _count?: {
+    history: number;
+  };
 }
 
 export interface RejectionItem {
@@ -17,6 +33,8 @@ export interface RejectionItem {
   primaryReason: string;
   allReasons: string[];
   createdAt: string;
+  acceptedRecordId?: string | null;
+  acceptedRecord?: RecordItem | null;
 }
 
 export interface IngestRunItem {
@@ -63,6 +81,8 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
 }
 
 export const api = {
+  getHealth: () => fetchApi<{ status: string; server: string; database: string }>('/ingest/health'),
+  cleanDatabase: () => fetchApi<{ success: boolean; message: string; deleted: any }>('/ingest/clean', { method: 'POST' }),
   getStats: () => fetchApi<OverallStats>('/ingest/stats'),
   getRuns: () => fetchApi<IngestRunItem[]>('/ingest/runs'),
   runSampleIngestion: () => fetchApi<any>('/ingest/sample', { method: 'POST' }),
@@ -74,17 +94,22 @@ export const api = {
       body: formData,
     });
   },
-  getRecords: (params: { source?: string; status?: string; from?: string; to?: string; page?: number; limit?: number }) => {
+  getRecords: (params: { source?: string; status?: string; from?: string; to?: string; hasHistory?: string; page?: number; limit?: number }) => {
     const query = new URLSearchParams();
     if (params.source) query.set('source', params.source);
     if (params.status) query.set('status', params.status);
     if (params.from) query.set('from', params.from);
     if (params.to) query.set('to', params.to);
+    if (params.hasHistory) query.set('hasHistory', params.hasHistory);
     if (params.page) query.set('page', String(params.page));
     if (params.limit) query.set('limit', String(params.limit));
     return fetchApi<{ data: RecordItem[]; pagination: { total: number; page: number; limit: number; totalPages: number } }>(`/records?${query.toString()}`);
   },
   getSources: () => fetchApi<string[]>('/records/sources'),
+  getRecordHistory: (id: string) =>
+    fetchApi<{ masterId: string; master: RecordItem; history: RecordHistoryItem[] }>(
+      `/records/${encodeURIComponent(id)}/history`,
+    ),
   getRejections: (params: { reason?: string; page?: number; limit?: number }) => {
     const query = new URLSearchParams();
     if (params.reason) query.set('reason', params.reason);
