@@ -9,27 +9,38 @@ import {
   Space, 
   Button, 
   Spin, 
-  Card,
-  Tooltip,
-  Table,
-  Alert
+  Card, 
+  Tooltip, 
+  Table, 
+  Alert,
+  Modal,
+  Dropdown,
+  message
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { 
   DatabaseOutlined, 
   HistoryOutlined, 
-  ClockCircleOutlined,
-  BranchesOutlined,
-  CheckCircleOutlined,
-  ExclamationCircleOutlined,
-  CloseCircleOutlined,
-  CopyOutlined,
-  DownOutlined,
-  UpOutlined
+  ClockCircleOutlined, 
+  BranchesOutlined, 
+  CheckCircleOutlined, 
+  ExclamationCircleOutlined, 
+  CloseCircleOutlined, 
+  CopyOutlined, 
+  DownOutlined, 
+  UpOutlined,
+  EyeOutlined,
+  DownloadOutlined,
+  FileExcelOutlined,
+  FileTextOutlined,
+  CodeOutlined,
+  CheckOutlined
 } from '@ant-design/icons';
 import { api, RecordItem, RecordHistoryItem } from '@/lib/api';
 import { CrmDataTable } from '@/components/CrmDataTable';
 import { useTheme } from '@/theme/ThemeContext';
+import { formatToIST } from '@/lib/dateUtils';
+import { exportToCsv, exportToJson } from '@/lib/exportUtils';
 
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -47,6 +58,9 @@ export default function RecordsExplorerPage() {
   const [dateRange, setDateRange] = useState<[any, any] | null>(null);
   const [searchId, setSearchId] = useState<string>('');
   const [versionFilter, setVersionFilter] = useState<'all' | 'multi' | 'single'>('all');
+
+  // Viewing Record Details Modal (Requirement 3 - Viewable in Accepted)
+  const [viewingRecord, setViewingRecord] = useState<RecordItem | null>(null);
 
   // Expanded row keys for parent dropdowns
   const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
@@ -138,6 +152,39 @@ export default function RecordsExplorerPage() {
     }
   };
 
+  // Requirement 4: Export to CSV and JSON
+  const handleExportCsv = () => {
+    const exportData = records.map(r => ({
+      id: r.id,
+      source: r.source,
+      recordedAt_IST: formatToIST(r.recordedAt),
+      recordedAt_UTC: r.recordedAt,
+      value: r.value,
+      status: r.status,
+      version: r.version,
+      childHistoryCount: r._count?.history ?? 0,
+      createdAt_IST: formatToIST(r.createdAt),
+    }));
+
+    exportToCsv(exportData, 'accepted_records', [
+      { key: 'id', label: 'Record ID' },
+      { key: 'source', label: 'Source System' },
+      { key: 'recordedAt_IST', label: 'Recorded At (IST)' },
+      { key: 'recordedAt_UTC', label: 'Recorded At (UTC)' },
+      { key: 'value', label: 'Value (0-100)' },
+      { key: 'status', label: 'Status' },
+      { key: 'version', label: 'Version' },
+      { key: 'childHistoryCount', label: 'Child History Versions' },
+      { key: 'createdAt_IST', label: 'Ingested At (IST)' },
+    ]);
+    message.success(`Exported ${records.length} records as CSV`);
+  };
+
+  const handleExportJson = () => {
+    exportToJson(records, 'accepted_records');
+    message.success(`Exported ${records.length} records as JSON`);
+  };
+
   const getStatusTag = (status: string) => {
     switch (status) {
       case 'OK':
@@ -165,14 +212,16 @@ export default function RecordsExplorerPage() {
       ),
     },
     {
-      title: 'Historical Recorded At (UTC)',
+      title: 'Historical Recorded At (IST)',
       dataIndex: 'recordedAt',
       key: 'recordedAt',
       render: (dt: string) => (
-        <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text-secondary)' }}>
-          <ClockCircleOutlined style={{ marginRight: 6, color: '#3b82f6' }} />
-          {new Date(dt).toISOString()}
-        </span>
+        <Tooltip title={`UTC: ${new Date(dt).toISOString()}`}>
+          <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text-secondary)' }}>
+            <ClockCircleOutlined style={{ marginRight: 6, color: '#3b82f6' }} />
+            {formatToIST(dt)}
+          </span>
+        </Tooltip>
       ),
     },
     {
@@ -214,13 +263,15 @@ export default function RecordsExplorerPage() {
       render: (status: string) => getStatusTag(status),
     },
     {
-      title: 'Superseded / Replaced At',
+      title: 'Superseded / Replaced At (IST)',
       dataIndex: 'replacedAt',
       key: 'replacedAt',
       render: (dt: string) => (
-        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-          {new Date(dt).toLocaleString()}
-        </span>
+        <Tooltip title={`UTC: ${new Date(dt).toISOString()}`}>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+            {formatToIST(dt)}
+          </span>
+        </Tooltip>
       ),
     },
     {
@@ -249,7 +300,10 @@ export default function RecordsExplorerPage() {
               type="text"
               size="small"
               icon={<CopyOutlined style={{ fontSize: 11, color: 'var(--text-muted)' }} />}
-              onClick={() => navigator.clipboard.writeText(id)}
+              onClick={() => {
+                navigator.clipboard.writeText(id);
+                message.success('ID copied to clipboard');
+              }}
               style={{ width: 24, height: 24, padding: 0 }}
             />
           </Tooltip>
@@ -267,14 +321,16 @@ export default function RecordsExplorerPage() {
       ),
     },
     {
-      title: 'Recorded At (UTC)',
+      title: 'Recorded At (IST)',
       dataIndex: 'recordedAt',
       key: 'recordedAt',
       render: (dt: string) => (
-        <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text-secondary)' }}>
-          <ClockCircleOutlined style={{ marginRight: 6, color: '#3b82f6' }} />
-          {new Date(dt).toISOString()}
-        </span>
+        <Tooltip title={`UTC: ${new Date(dt).toISOString()}`}>
+          <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text-secondary)' }}>
+            <ClockCircleOutlined style={{ marginRight: 6, color: '#3b82f6' }} />
+            {formatToIST(dt)}
+          </span>
+        </Tooltip>
       ),
     },
     {
@@ -334,6 +390,22 @@ export default function RecordsExplorerPage() {
         );
       },
     },
+    {
+      title: 'Action',
+      key: 'action',
+      align: 'center',
+      width: 90,
+      render: (_, rec) => (
+        <Button
+          size="small"
+          icon={<EyeOutlined />}
+          onClick={() => setViewingRecord(rec)}
+          style={{ borderRadius: 0, fontSize: 12 }}
+        >
+          View
+        </Button>
+      ),
+    },
   ];
 
   // Expandable row rendering all child records that were accepted under this parent
@@ -388,8 +460,8 @@ export default function RecordsExplorerPage() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, fontSize: 12 }}>
               <div>
-                <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>Event Timestamp:</Text>
-                <Text strong style={{ fontFamily: 'monospace' }}>{new Date(rec.recordedAt).toISOString()}</Text>
+                <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>Event Timestamp (IST):</Text>
+                <Text strong style={{ fontFamily: 'monospace' }}>{formatToIST(rec.recordedAt)}</Text>
               </div>
               <div>
                 <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>Source System:</Text>
@@ -452,7 +524,7 @@ export default function RecordsExplorerPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <CrmDataTable<RecordItem>
         title="Accepted Records Explorer (Requirement R4)"
-        subtitle="Explore, query, and trace normalized event records stored in PostgreSQL"
+        subtitle="Explore, query, view full payloads, and export normalized event records (Times in IST)"
         icon={<DatabaseOutlined />}
         columns={columns}
         dataSource={records}
@@ -466,6 +538,30 @@ export default function RecordsExplorerPage() {
         searchPlaceholder="Filter by Document ID..."
         hasActiveFilters={hasFilters}
         onResetFilters={resetFilters}
+        extraActions={
+          <Dropdown
+            menu={{
+              items: [
+                {
+                  key: 'csv',
+                  icon: <FileExcelOutlined style={{ color: '#10b981' }} />,
+                  label: 'Export Dataset as CSV (.csv)',
+                  onClick: handleExportCsv,
+                },
+                {
+                  key: 'json',
+                  icon: <FileTextOutlined style={{ color: '#3b82f6' }} />,
+                  label: 'Export Dataset as JSON (.json)',
+                  onClick: handleExportJson,
+                },
+              ],
+            }}
+          >
+            <Button icon={<DownloadOutlined />} style={{ borderRadius: 0 }}>
+              Export Data <DownOutlined style={{ fontSize: 10 }} />
+            </Button>
+          </Dropdown>
+        }
         filterControls={
           <Space wrap size="small">
             {/* Version / Revision Filter */}
@@ -525,6 +621,135 @@ export default function RecordsExplorerPage() {
           rowExpandable: (rec) => (rec._count?.history ?? 0) > 0,
         }}
       />
+
+      {/* VIEWABLE IN ACCEPTED INSPECTOR MODAL (Requirement 3) */}
+      <Modal
+        open={Boolean(viewingRecord)}
+        onCancel={() => setViewingRecord(null)}
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <EyeOutlined style={{ color: '#3b82f6', fontSize: 18 }} />
+            <span style={{ fontWeight: 700, fontSize: 16 }}>
+              Accepted Master Record Forensic Inspector
+            </span>
+          </div>
+        }
+        footer={[
+          <Button
+            key="copy"
+            icon={<CopyOutlined />}
+            onClick={() => {
+              if (viewingRecord) {
+                navigator.clipboard.writeText(JSON.stringify(viewingRecord, null, 2));
+                message.success('Full Record JSON copied to clipboard');
+              }
+            }}
+            style={{ borderRadius: 0 }}
+          >
+            Copy Record JSON
+          </Button>,
+          <Button
+            key="close"
+            type="primary"
+            onClick={() => setViewingRecord(null)}
+            style={{ borderRadius: 0 }}
+          >
+            Close Inspector
+          </Button>,
+        ]}
+        width={720}
+        destroyOnClose
+        centered
+      >
+        {viewingRecord && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingTop: 10 }}>
+            {/* Top Key Metadata Grid */}
+            <div
+              style={{
+                padding: 16,
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: 14,
+                fontSize: 12,
+              }}
+            >
+              <div>
+                <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>DOCUMENT ID:</Text>
+                <Text code strong style={{ fontSize: 12 }}>{viewingRecord.id}</Text>
+              </div>
+
+              <div>
+                <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>SOURCE SYSTEM:</Text>
+                <Tag color="geekblue" style={{ borderRadius: 0, fontWeight: 700 }}>
+                  {viewingRecord.source.toUpperCase()}
+                </Tag>
+              </div>
+
+              <div>
+                <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>ACTIVE VERSION:</Text>
+                <Tag color="blue" style={{ borderRadius: 0, fontWeight: 700 }}>
+                  v{viewingRecord.version} (Active Master)
+                </Tag>
+              </div>
+
+              <div>
+                <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>STATUS HEALTH:</Text>
+                {getStatusTag(viewingRecord.status)}
+              </div>
+
+              <div>
+                <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>METRIC VALUE:</Text>
+                <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>
+                  {viewingRecord.value} <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>/ 100</span>
+                </span>
+              </div>
+
+              <div>
+                <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>CHILD REVISIONS:</Text>
+                <Text strong>{viewingRecord._count?.history ?? 0} historical versions</Text>
+              </div>
+
+              <div>
+                <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>EVENT TIMESTAMP (IST):</Text>
+                <Text strong style={{ fontFamily: 'monospace' }}>{formatToIST(viewingRecord.recordedAt)}</Text>
+              </div>
+
+              <div>
+                <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>FIRST INGESTED (IST):</Text>
+                <Text style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>{formatToIST(viewingRecord.createdAt)}</Text>
+              </div>
+            </div>
+
+            {/* Raw JSON payload representation */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <Text strong style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  NORMALIZED POSTGRESQL RECORD PAYLOAD:
+                </Text>
+                <Tag color="green" style={{ borderRadius: 0 }}>Validated & Normalized</Tag>
+              </div>
+              <pre
+                style={{
+                  padding: 16,
+                  borderRadius: 0,
+                  background: isDark ? '#18181b' : '#f8fafc',
+                  border: `1px solid var(--border-color)`,
+                  color: isDark ? '#38bdf8' : '#0369a1',
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  overflowX: 'auto',
+                  maxHeight: 280,
+                  margin: 0,
+                }}
+              >
+                {JSON.stringify(viewingRecord, null, 2)}
+              </pre>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

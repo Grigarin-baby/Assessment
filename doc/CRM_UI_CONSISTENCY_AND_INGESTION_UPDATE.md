@@ -1,4 +1,4 @@
-# CRM UI Consistency, Database Wipe & Animated Ingestion Report
+# CRM UI Consistency, Database Wipe, Animated Ingestion & Child Dropdown Report
 
 ## Summary of Accomplished Tasks
 
@@ -20,3 +20,17 @@
      3. **Deduplication & Revisions**: Evaluating payload hashes, version increments, and foreign key history.
      4. **Atomic PostgreSQL Persistence**: Writing to tables within transactions.
    - Post-ingestion summary displays KPI metric cards: **Accepted & Stored**, **Dead Vault Rejections**, and **Execution Duration (ms)** with a direct link to explore the ingested records.
+
+4. **Accepted Child Records Display under Parent Dropdown**:
+   - In the **Accepted Records Explorer (`/records`)**, parent records can be expanded directly via the table expand icon or by clicking the interactive `v{version} ({count} accepted children) ▼` tag.
+   - Dropping down under any parent record presents:
+     - **Active Master Card (Parent)**: Current accepted version with live values, source system, and event timestamp.
+     - **Accepted Child Revisions Sub-Table**: Clean Ant Design table showing all child records accepted under this parent stored in `record_history` (Child version, Historical Recorded At, Source System, Value, Status, Superseded/Replaced At, and Payload Hash).
+   - Added a **Version Filter Dropdown** (`All Records`, `Has Child Revisions`, `Master Only (Single)`) in the toolbar to instantly isolate parent records that have accepted child revisions.
+
+5. **Git Commits & Push**:
+   - Organized into 3 clean, descriptive, easy-to-understand commits:
+     - `83f4915`: `feat(records): display accepted child revisions under parent dropdown with version filtering`
+     - `d38940a`: `feat(frontend): redesign CRM dashboard with dark theme, strict UI sizing, and live ingestion animation`
+     - `f108739`: `feat(backend): implement modular rule engine, parent-child record history, and database wipe API`
+   - Successfully pushed to remote repository `origin/main`.

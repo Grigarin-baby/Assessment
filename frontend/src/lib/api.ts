@@ -51,9 +51,17 @@ export interface IngestRunItem {
 export interface OverallStats {
   totalAccepted: number;
   totalRejected: number;
+  totalHistory?: number;
   totalProcessed: number;
   totalRuns: number;
   rejectionBreakdown: Record<string, number>;
+  statusBreakdown?: Record<string, number>;
+  sourceBreakdown?: Record<string, number>;
+  valueStats?: {
+    avg: number;
+    min: number;
+    max: number;
+  };
 }
 
 export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {

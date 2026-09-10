@@ -146,6 +146,7 @@ export class IngestionController {
   async getOverallStats() {
     const totalAccepted = await this.prisma.acceptedRecord.count();
     const totalRejected = await this.prisma.rejectedRecord.count();
+    const totalHistory = await this.prisma.recordHistory.count();
     const totalRuns = await this.prisma.ingestRun.count();
 
     // Group rejections by primaryReason
@@ -158,12 +159,47 @@ export class IngestionController {
       breakdown[r.primaryReason] = (breakdown[r.primaryReason] || 0) + 1;
     }
 
+    // Status breakdown of accepted records
+    const statusGroups = await this.prisma.acceptedRecord.groupBy({
+      by: ['status'],
+      _count: { status: true },
+    });
+    const statusBreakdown: Record<string, number> = {};
+    for (const s of statusGroups) {
+      statusBreakdown[s.status] = s._count.status;
+    }
+
+    // Source breakdown of accepted records
+    const sourceGroups = await this.prisma.acceptedRecord.groupBy({
+      by: ['source'],
+      _count: { source: true },
+    });
+    const sourceBreakdown: Record<string, number> = {};
+    for (const src of sourceGroups) {
+      sourceBreakdown[src.source] = src._count.source;
+    }
+
+    // Metric values aggregation
+    const valueStats = await this.prisma.acceptedRecord.aggregate({
+      _avg: { value: true },
+      _min: { value: true },
+      _max: { value: true },
+    });
+
     return {
       totalAccepted,
       totalRejected,
+      totalHistory,
       totalProcessed: totalAccepted + totalRejected,
       totalRuns,
       rejectionBreakdown: breakdown,
+      statusBreakdown,
+      sourceBreakdown,
+      valueStats: {
+        avg: valueStats._avg.value ? Number(valueStats._avg.value.toFixed(1)) : 0,
+        min: valueStats._min.value ?? 0,
+        max: valueStats._max.value ?? 0,
+      },
     };
   }
 }

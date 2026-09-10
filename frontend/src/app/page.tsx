@@ -38,10 +38,15 @@ import {
   SyncOutlined,
   SafetyCertificateOutlined,
   BranchesOutlined,
-  CheckCircleOutlined
+  CheckCircleOutlined,
+  CloseOutlined,
+  RiseOutlined,
+  BarChartOutlined,
+  AuditOutlined
 } from '@ant-design/icons';
 import { api, OverallStats, IngestRunItem } from '@/lib/api';
 import { useTheme } from '@/theme/ThemeContext';
+import { formatToIST } from '@/lib/dateUtils';
 
 const { Title, Text, Paragraph } = Typography;
 const { Dragger } = Upload;
@@ -53,6 +58,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [lastResult, setLastResult] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Staged File Upload (Requirement 8)
+  const [stagedFile, setStagedFile] = useState<File | null>(null);
 
   // Database Wipe State
   const [wipeModalOpen, setWipeModalOpen] = useState(false);
@@ -96,6 +104,7 @@ export default function DashboardPage() {
       );
       setLastResult(null);
       setWipeModalOpen(false);
+      setStagedFile(null);
       await fetchData();
     } catch (err: any) {
       message.error(err.message || 'Failed to wipe database');
@@ -166,12 +175,20 @@ export default function DashboardPage() {
     );
   };
 
-  const handleCustomUpload = (file: File) => {
+  // Requirement 8: File staging before execution
+  const handleStageFile = (file: File) => {
+    setStagedFile(file);
+    message.info(`File "${file.name}" staged. Click "Run Ingestion" below to process.`);
+    return false; // prevent default automatic upload POST
+  };
+
+  const handleRunStagedFile = () => {
+    if (!stagedFile) return;
     executeIngestWithAnimation(
-      () => api.uploadFile(file),
-      `Uploaded File (${file.name})`
+      () => api.uploadFile(stagedFile),
+      `Uploaded File (${stagedFile.name})`
     );
-    return false; // prevent default upload POST
+    setStagedFile(null);
   };
 
   const acceptRate = stats && stats.totalProcessed > 0
@@ -234,13 +251,16 @@ export default function DashboardPage() {
       ),
     },
     {
-      title: 'Started At',
+      title: 'Started At (IST)',
       dataIndex: 'startedAt',
       key: 'startedAt',
       render: (dt: string) => (
-        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-          {new Date(dt).toLocaleTimeString()}
-        </span>
+        <Tooltip title={`UTC: ${new Date(dt).toISOString()}`}>
+          <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+            <ClockCircleOutlined style={{ marginRight: 5, color: '#3b82f6' }} />
+            {formatToIST(dt)}
+          </span>
+        </Tooltip>
       ),
     },
   ];
@@ -281,7 +301,7 @@ export default function DashboardPage() {
             Enterprise Ingestion Dashboard
           </Title>
           <Text type="secondary" style={{ fontSize: 13 }}>
-            Continuous ingestion pipeline metrics, Section 3 validation breakdown, and Dead-Letter forensics.
+            Continuous ingestion pipeline metrics, Section 3 validation breakdown, and Dead-Letter forensics (Times in IST).
           </Text>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -321,7 +341,7 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* KPI Cards Row */}
+      {/* Row 1: Primary KPI Cards */}
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} lg={6}>
           <Card
@@ -356,7 +376,7 @@ export default function DashboardPage() {
             }}
           >
             <Statistic
-              title={<span style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 600 }}>ACCEPTED RECORDS (R1)</span>}
+              title={<span style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 600 }}>ACCEPTED MASTER RECORDS (R1)</span>}
               value={stats?.totalAccepted ?? 0}
               suffix={<span style={{ fontSize: 13, color: '#10b981', fontWeight: 600 }}>({acceptRate}%)</span>}
               prefix={<CheckCircleFilled style={{ color: '#10b981', marginRight: 6 }} />}
@@ -398,20 +418,159 @@ export default function DashboardPage() {
             }}
           >
             <Statistic
-              title={<span style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 600 }}>PIPELINE STATUS</span>}
-              value="Operational"
-              prefix={<RocketOutlined style={{ color: '#3b82f6', marginRight: 6 }} />}
-              valueStyle={{ color: '#3b82f6', fontWeight: 700, fontSize: 20 }}
+              title={<span style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 600 }}>CHILD AUDIT REVISIONS</span>}
+              value={stats?.totalHistory ?? 0}
+              prefix={<BranchesOutlined style={{ color: '#8b5cf6', marginRight: 6 }} />}
+              valueStyle={{ color: '#8b5cf6', fontWeight: 800 }}
             />
-            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Tag color="success" style={{ margin: 0, fontSize: 11, borderRadius: 0 }}>Rule Engine Active</Tag>
-              <Tag color="blue" style={{ margin: 0, fontSize: 11, borderRadius: 0 }}>FK History Enabled</Tag>
+            <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
+              Archived in <code>record_history</code> table
             </div>
           </Card>
         </Col>
       </Row>
 
-      {/* Middle Row: Ingestion Runner + Rejection Distribution */}
+      {/* Row 2: Secondary Metric Analytics (Requirement 2 - More Metrics) */}
+      <Row gutter={[16, 16]}>
+        {/* Metric 1: Accepted Record Status Health Breakdown */}
+        <Col xs={24} lg={8}>
+          <Card
+            title={
+              <Space>
+                <RiseOutlined style={{ color: '#10b981' }} />
+                <span>Accepted Record Status Health</span>
+              </Space>
+            }
+            bordered={false}
+            style={{
+              borderRadius: 0,
+              border: `1px solid var(--border-color)`,
+              background: 'var(--bg-card)',
+              height: '100%',
+            }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* OK Status */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
+                  <span><Tag color="success" style={{ borderRadius: 0, fontSize: 11 }}>STATUS: OK</Tag> Clean Healthy</span>
+                  <Text strong>{stats?.statusBreakdown?.['OK'] ?? 0} records ({stats?.totalAccepted ? Number((((stats?.statusBreakdown?.['OK'] ?? 0) / stats.totalAccepted) * 100).toFixed(1)) : 0}%)</Text>
+                </div>
+                <Progress percent={stats?.totalAccepted ? Number((((stats?.statusBreakdown?.['OK'] ?? 0) / stats.totalAccepted) * 100).toFixed(1)) : 0} strokeColor="#10b981" size="small" showInfo={false} />
+              </div>
+
+              {/* WARN Status */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
+                  <span><Tag color="warning" style={{ borderRadius: 0, fontSize: 11 }}>STATUS: WARN</Tag> Soft Warnings</span>
+                  <Text strong>{stats?.statusBreakdown?.['WARN'] ?? 0} records ({stats?.totalAccepted ? Number((((stats?.statusBreakdown?.['WARN'] ?? 0) / stats.totalAccepted) * 100).toFixed(1)) : 0}%)</Text>
+                </div>
+                <Progress percent={stats?.totalAccepted ? Number((((stats?.statusBreakdown?.['WARN'] ?? 0) / stats.totalAccepted) * 100).toFixed(1)) : 0} strokeColor="#f59e0b" size="small" showInfo={false} />
+              </div>
+
+              {/* FAIL Status */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
+                  <span><Tag color="error" style={{ borderRadius: 0, fontSize: 11 }}>STATUS: FAIL</Tag> Accepted Failure Events</span>
+                  <Text strong>{stats?.statusBreakdown?.['FAIL'] ?? 0} records ({stats?.totalAccepted ? Number((((stats?.statusBreakdown?.['FAIL'] ?? 0) / stats.totalAccepted) * 100).toFixed(1)) : 0}%)</Text>
+                </div>
+                <Progress percent={stats?.totalAccepted ? Number((((stats?.statusBreakdown?.['FAIL'] ?? 0) / stats.totalAccepted) * 100).toFixed(1)) : 0} strokeColor="#ef4444" size="small" showInfo={false} />
+              </div>
+            </div>
+          </Card>
+        </Col>
+
+        {/* Metric 2: Source Distribution */}
+        <Col xs={24} lg={8}>
+          <Card
+            title={
+              <Space>
+                <BarChartOutlined style={{ color: '#3b82f6' }} />
+                <span>Ingestion Volume by Source System</span>
+              </Space>
+            }
+            bordered={false}
+            style={{
+              borderRadius: 0,
+              border: `1px solid var(--border-color)`,
+              background: 'var(--bg-card)',
+              height: '100%',
+            }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {stats?.sourceBreakdown && Object.keys(stats.sourceBreakdown).length > 0 ? (
+                Object.entries(stats.sourceBreakdown).map(([src, count]) => {
+                  const pct = stats.totalAccepted > 0 ? Number(((count / stats.totalAccepted) * 100).toFixed(1)) : 0;
+                  return (
+                    <div key={src}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
+                        <Tag color="geekblue" style={{ borderRadius: 0, textTransform: 'uppercase', fontSize: 11, fontWeight: 600 }}>
+                          {src}
+                        </Tag>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          {count} records ({pct}%)
+                        </Text>
+                      </div>
+                      <Progress percent={pct} strokeColor="#3b82f6" size="small" showInfo={false} />
+                    </div>
+                  );
+                })
+              ) : (
+                <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-muted)' }}>
+                  No source data recorded yet.
+                </div>
+              )}
+            </div>
+          </Card>
+        </Col>
+
+        {/* Metric 3: Value Analytics & Idempotency */}
+        <Col xs={24} lg={8}>
+          <Card
+            title={
+              <Space>
+                <AuditOutlined style={{ color: '#8b5cf6' }} />
+                <span>Metric Value & Integrity Analytics</span>
+              </Space>
+            }
+            bordered={false}
+            style={{
+              borderRadius: 0,
+              border: `1px solid var(--border-color)`,
+              background: 'var(--bg-card)',
+              height: '100%',
+            }}
+          >
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }}>
+              <div style={{ padding: 12, background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
+                <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>AVERAGE METRIC VALUE</Text>
+                <span style={{ fontSize: 24, fontWeight: 800, color: '#3b82f6' }}>{stats?.valueStats?.avg ?? 0}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Across accepted records</span>
+              </div>
+
+              <div style={{ padding: 12, background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
+                <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>ALLOWED RANGE [0–100]</Text>
+                <span style={{ fontSize: 24, fontWeight: 800, color: '#10b981' }}>{stats?.valueStats?.min ?? 0} - {stats?.valueStats?.max ?? 0}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Min to Max observed</span>
+              </div>
+
+              <div style={{ padding: 12, background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
+                <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>TOTAL INGEST RUNS</Text>
+                <span style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)' }}>{stats?.totalRuns ?? 0}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Audit batch runs</span>
+              </div>
+
+              <div style={{ padding: 12, background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
+                <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>TIMEZONE LOCALIZATION</Text>
+                <span style={{ fontSize: 16, fontWeight: 700, color: '#10b981', lineHeight: '32px' }}>IST (UTC+5:30)</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Active formatting</span>
+              </div>
+            </div>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Row 3: Ingestion Runner + Rejection Distribution */}
       <Row gutter={[16, 16]}>
         {/* Left: Interactive Ingestion Runner */}
         <Col xs={24} lg={12}>
@@ -468,30 +627,84 @@ export default function DashboardPage() {
               </Button>
             </div>
 
-            {/* File Drag & Drop */}
-            <Dragger
-              name="file"
-              multiple={false}
-              showUploadList={false}
-              beforeUpload={(file) => handleCustomUpload(file)}
-              disabled={ingesting}
-              style={{
-                padding: '16px 0',
-                background: 'var(--bg-secondary)',
-                borderRadius: 0,
-                borderColor: 'var(--border-color)',
-              }}
-            >
-              <p className="ant-upload-drag-icon">
-                <InboxOutlined style={{ color: '#3b82f6', fontSize: 36 }} />
-              </p>
-              <p style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)', margin: 0 }}>
-                Click or drag custom JSON / NDJSON file here
-              </p>
-              <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 0' }}>
-                Files are streamed through the modular Ingestion Rule Engine directly into PostgreSQL.
-              </p>
-            </Dragger>
+            {/* File Staging Box (Requirement 8 - Staged Upload Before Running) */}
+            {stagedFile ? (
+              <div
+                style={{
+                  padding: 16,
+                  border: '1px solid #3b82f6',
+                  background: isDark ? 'rgba(59, 130, 246, 0.1)' : '#eff6ff',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Space>
+                    <FileTextOutlined style={{ fontSize: 24, color: '#3b82f6' }} />
+                    <div>
+                      <Text strong style={{ fontSize: 13, color: 'var(--text-primary)', display: 'block' }}>
+                        {stagedFile.name}
+                      </Text>
+                      <Text type="secondary" style={{ fontSize: 11 }}>
+                        Size: {(stagedFile.size / 1024).toFixed(1)} KB • Type: {stagedFile.type || 'application/json'}
+                      </Text>
+                    </div>
+                  </Space>
+                  <Tag color="processing" style={{ borderRadius: 0 }}>
+                    File Staged — Ready
+                  </Tag>
+                </div>
+
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  File is loaded in client memory. Click <strong>&quot;Execute Ingestion for File&quot;</strong> below to stream records into the database.
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
+                  <Button
+                    icon={<CloseOutlined />}
+                    disabled={ingesting}
+                    onClick={() => setStagedFile(null)}
+                    style={{ borderRadius: 0 }}
+                  >
+                    Cancel / Remove
+                  </Button>
+                  <Button
+                    type="primary"
+                    icon={<PlayCircleOutlined />}
+                    loading={ingesting}
+                    onClick={handleRunStagedFile}
+                    style={{ borderRadius: 0 }}
+                  >
+                    Execute Ingestion for File
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Dragger
+                name="file"
+                multiple={false}
+                showUploadList={false}
+                beforeUpload={(file) => handleStageFile(file)}
+                disabled={ingesting}
+                style={{
+                  padding: '16px 0',
+                  background: 'var(--bg-secondary)',
+                  borderRadius: 0,
+                  borderColor: 'var(--border-color)',
+                }}
+              >
+                <p className="ant-upload-drag-icon">
+                  <InboxOutlined style={{ color: '#3b82f6', fontSize: 36 }} />
+                </p>
+                <p style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)', margin: 0 }}>
+                  Click or drag custom JSON / NDJSON file here to stage
+                </p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 0' }}>
+                  Files will be staged for preview before running ingestion.
+                </p>
+              </Dragger>
+            )}
 
             {/* Last Result Summary Alert */}
             {lastResult && (
@@ -589,12 +802,12 @@ export default function DashboardPage() {
         </Col>
       </Row>
 
-      {/* Bottom Row: Recent Runs Audit Table */}
+      {/* Row 4: Recent Runs Audit Table */}
       <Card
         title={
           <Space>
             <FileTextOutlined style={{ color: '#3b82f6' }} />
-            <span>Recent Ingestion Runs Activity</span>
+            <span>Recent Ingestion Runs Activity (Times in IST)</span>
           </Space>
         }
         bordered={false}
