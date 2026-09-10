@@ -75,4 +75,6 @@ npm test
 ## 📂 Key Documentation
 - **[ASSUMPTIONS.md](./ASSUMPTIONS.md):** Complete analysis of all deliberate specification gaps, duplicate ID strategies, date normalization heuristics, and engineering trade-offs.
 - **[PROGRESS_TRACKER.md](./PROGRESS_TRACKER.md):** Master milestone and subtask execution tracker.
+- **[doc/RULE_ENGINE_AND_RECORD_HISTORY_PLAN.md](./doc/RULE_ENGINE_AND_RECORD_HISTORY_PLAN.md):** Architecture and design for the Ingestion Rule Engine and Parent/Child Record History system.
+- **[doc/RECORD_INGESTION_TECHNICAL_PLAN.md](./doc/RECORD_INGESTION_TECHNICAL_PLAN.md):** Architectural roadmap and deep-dive technical specification.
 - **[sample-data/records_sample_250.json](./sample-data/records_sample_250.json):** 247-record test dataset covering all Section 3 edge cases.
