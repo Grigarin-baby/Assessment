@@ -1,0 +1,17 @@
+{
+  "name": "record-ingestion-reporting-system",
+  "version": "1.0.0",
+  "description": "Senior Full-Stack Record Ingestion & Reporting System",
+  "private": true,
+  "scripts": {
+    "ingest": "npm run --prefix backend ingest --",
+    "start:backend": "npm run --prefix backend start:dev",
+    "start:frontend": "npm run --prefix frontend dev",
+    "test": "npm run --prefix backend test",
+    "db:generate": "npm run --prefix backend prisma:generate",
+    "db:push": "npm run --prefix backend prisma:push"
+  },
+  "keywords": ["nest", "next", "prisma", "ingestion", "reporting"],
+  "author": "",
+  "license": "ISC"
+}
